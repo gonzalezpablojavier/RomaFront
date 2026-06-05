@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { apiClient } from '../../api/apiClient';
 import { buildCertificadoAdminUrl } from '../../config/env';
 import { format, parseISO, isValid } from 'date-fns';
 import {
@@ -49,8 +49,7 @@ const PanelComprobantes: React.FC = () => {
   const tipos = ['Factura', 'Recibo', 'Nota de Crédito', 'Nota de Débito'];
   const estados = ['Pendiente', 'Aprobado', 'Rechazado'];
 
-  const API_URL = `${import.meta.env.VITE_API_DISTRI_API}`;
- 
+   
   useEffect(() => {
     const storedEmpresaID = localStorage.getItem('l_empresa_id');
     if (storedEmpresaID) {
@@ -80,10 +79,7 @@ const PanelComprobantes: React.FC = () => {
 
   const fetchComprobantes = async () => {
     try {
-      const response = await axios.get(`${API_URL}/certificados`,
-        {
-          headers: { 'x-empresa-id': empresaId }
-        }
+      const response = await apiClient.get(`/certificados`
       );
       const sortedComprobantes = response.data.sort((a: Comprobante, b: Comprobante) => new Date(b.fechaSubida).getTime() - new Date(a.fechaSubida).getTime());
       setComprobantes(sortedComprobantes);
@@ -95,9 +91,7 @@ const PanelComprobantes: React.FC = () => {
 
   const fetchColaboradores = async () => {
     try {
-      const response = await axios.get(`${API_URL}/usuarios-registrados`, {
-        headers: { 'x-empresa-id': empresaId }
-      });
+      const response = await apiClient.get(`/usuarios-registrados`);
       if (response.data.ok === 1 && Array.isArray(response.data.data)) {
         setColaboradores(response.data.data);
       } else {

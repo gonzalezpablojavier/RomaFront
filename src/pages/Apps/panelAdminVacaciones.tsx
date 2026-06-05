@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { apiClient } from '../../api/apiClient';
 import { format, isValid, parseISO, differenceInDays, getWeekOfMonth, startOfMonth, endOfMonth } from 'date-fns';
 import { getAreasForEmpresa, getManagerIdsForEmpresa, getManagerAreasForEmpresa } from '../../services/empresaService';
 
@@ -90,8 +90,7 @@ const PanelAdminVacaciones: React.FC = () => {
     }
   };
 
-  const API_URL = `${import.meta.env.VITE_API_DISTRI_API}`;
-
+  
 
 
 
@@ -181,9 +180,7 @@ const PanelAdminVacaciones: React.FC = () => {
 
   const fetchVacaciones = async () => {
     try {
-      const response = await retryOperation(() => axios.get(`${API_URL}/vacaciones`,{
-        headers: { 'x-empresa-id': empresaId }
-      }));
+      const response = await retryOperation(() => apiClient.get(`/vacaciones`));
       const sortedVacaciones = response.data.sort((a: Vacaciones, b: Vacaciones) => b.id - a.id);
       setVacaciones(sortedVacaciones);
     } catch (error) {
@@ -194,8 +191,7 @@ const PanelAdminVacaciones: React.FC = () => {
 
   const fetchColaboradores = async () => {
     try {
-      const response = await retryOperation(() => axios.get(`${API_URL}/usuarios-registrados`,
-       { headers: { 'x-empresa-id': empresaId }}
+      const response = await retryOperation(() => apiClient.get(`/usuarios-registrados`
       ));
       if (response.data.ok === 1 && Array.isArray(response.data.data)) {
         setColaboradores(response.data.data);
@@ -259,12 +255,12 @@ const PanelAdminVacaciones: React.FC = () => {
     try {
       
       await retryOperation(async () => {
-        await axios.put(`${API_URL}/vacaciones/${id}`, { autorizado: 'Aprobado' },{ headers: { 'x-empresa-id': empresaId } });
+        await apiClient.put(`/vacaciones/${id}`, { autorizado: 'Aprobado' });
       });
 
  
   /*
-      await retryOperation(() => axios.post(`${API_URL}/create-calendar-event`, {
+      await retryOperation(() => apiClient.post(`/create-calendar-event`, {
         summary: `Vacaciones de ${colaborador.nombre} ${colaborador.apellido}`,
         description: `Vacaciones aprobadas para ${colaborador.nombre} ${colaborador.apellido} del área de ${colaborador.area}`,
         start: vacacionAprobada.fechaPermisoDesde,
@@ -282,7 +278,7 @@ const PanelAdminVacaciones: React.FC = () => {
   const handleReject = async (id: number) => {
     try {
       await retryOperation(async () => {
-        await axios.put(`${API_URL}/vacaciones/${id}`, { autorizado: 'Rechazado' },{ headers: { 'x-empresa-id': empresaId } });
+        await apiClient.put(`/vacaciones/${id}`, { autorizado: 'Rechazado' });
       });
       fetchVacaciones();
     } catch (error) {
@@ -294,7 +290,7 @@ const PanelAdminVacaciones: React.FC = () => {
   const handleCancel = async (id: number) => {
     try {
       await retryOperation(async () => {
-        await axios.put(`${API_URL}/vacaciones/${id}`, { autorizado: 'Evaluando' },{ headers: { 'x-empresa-id': empresaId } });
+        await apiClient.put(`/vacaciones/${id}`, { autorizado: 'Evaluando' });
       });
       fetchVacaciones();
     } catch (error) {

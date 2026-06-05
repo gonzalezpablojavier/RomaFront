@@ -1,4 +1,4 @@
-import axios from 'axios';
+import { apiClient } from '../api/apiClient';
 import type {
   CambioNivel,
   CriterioConfig,
@@ -8,79 +8,60 @@ import type {
   ResumenDesempeno,
 } from '../types/desempeno';
 
-const API_URL = `${import.meta.env.VITE_API_DISTRI_API}`;
-
 type ApiResponse<T> = { ok: number; message: string; data: T };
-
-const getHeaders = () => {
-  const empresaId = localStorage.getItem('l_empresa_id') || 'default';
-  const rawUser = localStorage.getItem('user');
-  let userId = '';
-  try {
-    const parsed = rawUser ? JSON.parse(rawUser) : null;
-    const maybe = parsed?.user_code ?? parsed?.userId ?? parsed?.id;
-    if (maybe != null) userId = String(maybe);
-  } catch {
-    userId = '';
-  }
-  return {
-    'x-empresa-id': empresaId,
-    ...(userId ? { 'x-user-id': userId } : {}),
-  };
-};
 
 export const desempenoService = {
   getConfig: () =>
-    axios.get<
+    apiClient.get<
       ApiResponse<{
         CRITERIOS_POR_NIVEL: Record<'Jr' | 'Ssr' | 'Sr', CriterioConfig[]>;
         DESCRIPCION_NIVEL: Record<'Jr' | 'Ssr' | 'Sr', string>;
       }>
-    >(`${API_URL}/desempeno/config/criterios`, { headers: getHeaders() }),
+    >('/desempeno/config/criterios'),
 
   getTrimestreActivo: () =>
-    axios.get<ApiResponse<{ trimestre: string }>>(`${API_URL}/desempeno/config/trimestre-activo`, { headers: getHeaders() }),
+    apiClient.get<ApiResponse<{ trimestre: string }>>('/desempeno/config/trimestre-activo'),
 
   getColaboradores: (params?: { area?: string; sucursal?: string; nivel?: string; q?: string }) =>
-    axios.get<ApiResponse<ColaboradorDesempeno[]>>(`${API_URL}/desempeno/colaboradores`, { headers: getHeaders(), params }),
+    apiClient.get<ApiResponse<ColaboradorDesempeno[]>>('/desempeno/colaboradores', { params }),
 
   getColaborador: (colaboradorID: number) =>
-    axios.get<ApiResponse<ColaboradorDesempeno>>(`${API_URL}/desempeno/colaborador/${colaboradorID}`, { headers: getHeaders() }),
+    apiClient.get<ApiResponse<ColaboradorDesempeno>>(`/desempeno/colaborador/${colaboradorID}`),
 
   getEvaluacion: (colaboradorID: number, trimestre: string) =>
-    axios.get<ApiResponse<Evaluacion | null>>(`${API_URL}/desempeno/evaluacion/${colaboradorID}/${trimestre}`, {
-      headers: getHeaders(),
-    }),
+    apiClient.get<ApiResponse<Evaluacion | null>>(`/desempeno/evaluacion/${colaboradorID}/${trimestre}`),
 
   getResumen: (trimestre: string) =>
-    axios.get<ApiResponse<ResumenDesempeno>>(`${API_URL}/desempeno/resumen/${trimestre}`, { headers: getHeaders() }),
+    apiClient.get<ApiResponse<ResumenDesempeno>>(`/desempeno/resumen/${trimestre}`),
 
   getRanking: (trimestre: string, params?: { area?: string; sucursal?: string; nivel?: string }) =>
-    axios.get<ApiResponse<ColaboradorDesempeno[]>>(`${API_URL}/desempeno/ranking/${trimestre}`, { headers: getHeaders(), params }),
+    apiClient.get<ApiResponse<ColaboradorDesempeno[]>>(`/desempeno/ranking/${trimestre}`, { params }),
 
   getEvolucionGeneral: () =>
-    axios.get<ApiResponse<Array<{ trimestre: string; scorePromedio: string | number }>>>(`${API_URL}/desempeno/evolucion/general`, { headers: getHeaders() }),
+    apiClient.get<ApiResponse<Array<{ trimestre: string; scorePromedio: string | number }>>>(
+      '/desempeno/evolucion/general',
+    ),
 
   getEvolucionPorArea: () =>
-    axios.get<ApiResponse<Array<{ trimestre: string; area: string; scorePromedio: string | number }>>>(`${API_URL}/desempeno/evolucion/por-area`, {
-      headers: getHeaders(),
-    }),
+    apiClient.get<ApiResponse<Array<{ trimestre: string; area: string; scorePromedio: string | number }>>>(
+      '/desempeno/evolucion/por-area',
+    ),
 
   getEvolucionNiveles: () =>
-    axios.get<ApiResponse<Array<{ trimestre: string; nivel: 'Jr' | 'Ssr' | 'Sr'; cantidad: string | number }>>>(`${API_URL}/desempeno/evolucion/niveles`, {
-      headers: getHeaders(),
-    }),
+    apiClient.get<ApiResponse<Array<{ trimestre: string; nivel: 'Jr' | 'Ssr' | 'Sr'; cantidad: string | number }>>>(
+      '/desempeno/evolucion/niveles',
+    ),
 
   getEvolucionIndividual: (colaboradorID: number) =>
-    axios.get<ApiResponse<Array<{ trimestre: string; scoreTotal: string | number; nivel: 'Jr' | 'Ssr' | 'Sr' }>>>(`${API_URL}/desempeno/evolucion/individual/${colaboradorID}`, {
-      headers: getHeaders(),
-    }),
+    apiClient.get<ApiResponse<Array<{ trimestre: string; scoreTotal: string | number; nivel: 'Jr' | 'Ssr' | 'Sr' }>>>(
+      `/desempeno/evolucion/individual/${colaboradorID}`,
+    ),
 
   getCambiosNivel: (params?: { area?: string; direccion?: string }) =>
-    axios.get<ApiResponse<CambioNivel[]>>(`${API_URL}/desempeno/cambios-nivel`, { headers: getHeaders(), params }),
+    apiClient.get<ApiResponse<CambioNivel[]>>('/desempeno/cambios-nivel', { params }),
 
   getMiDesempeno: () =>
-    axios.get<
+    apiClient.get<
       ApiResponse<{
         colaboradorID: number;
         nombre: string;
@@ -89,9 +70,8 @@ export const desempenoService = {
         evaluaciones: Array<{ id: number; trimestre: string; nivel: 'Jr' | 'Ssr' | 'Sr'; scoreTotal: number }>;
         scoreActual: number | null;
       }>
-    >(`${API_URL}/desempeno/mi-desempeno`, { headers: getHeaders() }),
+    >('/desempeno/mi-desempeno'),
 
   guardarEvaluacion: (payload: EvaluacionPayload) =>
-    axios.post<ApiResponse<any>>(`${API_URL}/desempeno/evaluacion`, payload, { headers: getHeaders() }),
+    apiClient.post<ApiResponse<any>>('/desempeno/evaluacion', payload),
 };
-

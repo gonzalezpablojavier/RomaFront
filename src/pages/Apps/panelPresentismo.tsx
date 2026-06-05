@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import axios from 'axios';
+import { apiClient } from '../../api/apiClient';
 import dayjs from 'dayjs';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
@@ -33,7 +33,8 @@ import { AdapterDayjs } from '@mui/x-date-pickers/AdapterDayjs';
 import {
   getAreasForEmpresa,
   getManagerIdsForEmpresa,
-  getManagerAreasForEmpresa
+  getManagerAreasForEmpresa,
+  getSucursalesForEmpresa,
 } from '../../services/empresaService';
 import { SelectChangeEvent } from '@mui/material';
 import * as XLSX from 'xlsx';
@@ -42,7 +43,6 @@ dayjs.extend(isSameOrBefore);
 dayjs.extend(isSameOrAfter);
 dayjs.extend(isBetween);
 
-const API_URL = import.meta.env.VITE_API_DISTRI_API;
 
 /** Días laborales fijos por mes para volumen y tasa de ausentismo (regla de negocio). */
 const DIAS_LABORALES_MES_KPI = 24;
@@ -111,7 +111,7 @@ const AdminPresentismoPanel: React.FC = () => {
   const [colaboradores, setColaboradores] = useState<Colaborador[]>([]);
   const [empresaId, setEmpresaId] = useState<string>('');
   const [areas, setAreas] = useState<string[]>([]);
-  const [sucursales] = useState<string[]>(['PICO', 'MDP', 'DIMES','ROSARIO']); 
+  const [sucursales, setSucursales] = useState<string[]>([]);
   const [managerIds, setManagerIds] = useState<string[]>([]);
   const [managerAreas, setManagerAreas] = useState<{ [key: string]: string }>({});
   const [currentUserID, setCurrentUserID] = useState<string | null>(null);
@@ -207,8 +207,8 @@ const AdminPresentismoPanel: React.FC = () => {
     const fetchVacacionesYPermisos = async () => {
       try {
         const [vacacionesResponse, permisosResponse] = await Promise.all([
-          axios.get(`${API_URL}/vacaciones`, { headers: { 'x-empresa-id': empresaId } }),
-          axios.get(`${API_URL}/permiso-temporal`, { headers: { 'x-empresa-id': empresaId } }),
+          apiClient.get(`/vacaciones`),
+          apiClient.get(`/permiso-temporal`),
         ]);
         setVacaciones(vacacionesResponse.data);
         setPermisos(permisosResponse.data);
@@ -232,6 +232,7 @@ const AdminPresentismoPanel: React.FC = () => {
       const empresaManagerIds = getManagerIdsForEmpresa(storedEmpresaID);
       const empresaManagerAreas = getManagerAreasForEmpresa(storedEmpresaID);
       setAreas(empresaAreas);
+      setSucursales(getSucursalesForEmpresa(storedEmpresaID));
       setManagerIds(empresaManagerIds);
       setManagerAreas(empresaManagerAreas);
     } else {
@@ -260,7 +261,7 @@ const AdminPresentismoPanel: React.FC = () => {
         fechaDesde: filtrosDetalles.fechaDesde?.format('DD/MM/YYYY'),
         fechaHasta: filtrosDetalles.fechaHasta?.format('DD/MM/YYYY'),
       };
-      const response = await axios.get(`${API_URL}/presentismo`, {
+      const response = await apiClient.get(`/presentismo`, {
         params,
         headers: { 'x-empresa-id': empresaId },
       });
@@ -273,7 +274,7 @@ const AdminPresentismoPanel: React.FC = () => {
 
   const fetchColaboradores = async () => {
     try {
-      const response = await axios.get(`${API_URL}/usuarios-registrados`, {
+      const response = await apiClient.get(`/usuarios-registrados`, {
         headers: { 'x-empresa-id': empresaId },
       });
       // Obtenemos el array de colaboradores
@@ -304,7 +305,7 @@ const AdminPresentismoPanel: React.FC = () => {
         fechaDesde: filtrosDetalles.fechaDesde?.format('YYYY-MM-DD'),
         fechaHasta: filtrosDetalles.fechaHasta?.format('YYYY-MM-DD'),
       };
-      const response = await axios.get(`${API_URL}/estado-asistencia`, {
+      const response = await apiClient.get(`/estado-asistencia`, {
         params,
         headers: { 'x-empresa-id': empresaId },
       });
@@ -324,14 +325,14 @@ const AdminPresentismoPanel: React.FC = () => {
       const desde = dayjs().startOf('month');
       const hasta = dayjs().endOf('month');
       const [pres, est] = await Promise.all([
-        axios.get(`${API_URL}/presentismo`, {
+        apiClient.get(`/presentismo`, {
           params: {
             fechaDesde: desde.format('DD/MM/YYYY'),
             fechaHasta: hasta.format('DD/MM/YYYY'),
           },
           headers: { 'x-empresa-id': empresaId },
         }),
-        axios.get(`${API_URL}/estado-asistencia`, {
+        apiClient.get(`/estado-asistencia`, {
           params: {
             fechaDesde: desde.format('YYYY-MM-DD'),
             fechaHasta: hasta.format('YYYY-MM-DD'),
@@ -827,17 +828,15 @@ const AdminPresentismoPanel: React.FC = () => {
         let response;
         if (estadoExistente) {
           console.log(`🔄 Actualizando estado existente para ${fechaProcesar}...`);
-          response = await axios.put(
-            `${API_URL}/estado-asistencia/${estadoExistente.id}`,
-            payload,
-            { headers: { 'x-empresa-id': empresaId } }
+          response = await apiClient.put(
+            `/estado-asistencia/${estadoExistente.id}`,
+            payload
           );
         } else {
           console.log(`➕ Creando nuevo estado para ${fechaProcesar}...`);
-          response = await axios.post(
-            `${API_URL}/estado-asistencia`,
-            payload,
-            { headers: { 'x-empresa-id': empresaId } }
+          response = await apiClient.post(
+            `/estado-asistencia`,
+            payload
           );
         }
 
@@ -884,8 +883,8 @@ const AdminPresentismoPanel: React.FC = () => {
       if (empresaId) {
         try {
           const [vacacionesResponse, permisosResponse] = await Promise.all([
-            axios.get(`${API_URL}/vacaciones`, { headers: { 'x-empresa-id': empresaId } }),
-            axios.get(`${API_URL}/permiso-temporal`, { headers: { 'x-empresa-id': empresaId } }),
+            apiClient.get(`/vacaciones`),
+            apiClient.get(`/permiso-temporal`),
           ]);
           setVacaciones(vacacionesResponse.data);
           setPermisos(permisosResponse.data);

@@ -38,6 +38,7 @@ const DefaultLayout = ({ children }: PropsWithChildren) => {
         { path: Route.ManageMoods, icon: '/images/dash-885.png', alt: 'Manage Moods', label: 'Panel Como estas?' },
         { path: Route.PanelPresentismo, icon: '/images/dash-885.png', alt: 'Manage Moods', label: 'Panel Presentismo' },
         { path: Route.PanelColaboradores, icon: '/images/dash-885.png', alt: 'Manage Moods', label: 'Panel Colaboradores' },
+        { path: Route.PlatformAdmin, icon: '/images/dash-885.png', alt: 'Admin plataforma', label: 'Admin plataforma' },
     ];
 
     const goToTop = () => {

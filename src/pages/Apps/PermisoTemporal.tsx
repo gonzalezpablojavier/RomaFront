@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
+import { apiClient } from '../../api/apiClient';
 import { 
   TextField, 
   Button, 
@@ -70,14 +70,12 @@ const PermisoTemporal: React.FC = () => {
   const [historialPermisos, setHistorialPermisos] = useState<Permiso[]>([]);
   const [refreshKey, setRefreshKey] = useState(0);
   const [empresaId, setEmpresaId] = useState<string | null>(null);
-  const API_URL = `${import.meta.env.VITE_API_DISTRI_API}`;
-
+  
   const motivos = ['Personal', 'Estudio', 'Salud', 'Tramites', 'Home','Sabado Ganado'];
 
   const obtenerHistorialPermisos = useCallback(async (colaboradorID: string,empresaId:string) => {
     try {
-      const response = await axios.get<ApiResponse>(`${API_URL}/permiso-temporal/historial/${colaboradorID}?limit=100`,
-        { headers: { 'x-empresa-id': empresaId }}
+      const response = await apiClient.get<ApiResponse>(`/permiso-temporal/historial/${colaboradorID}?limit=100`
       );
       if (response.data.ok === 1 && Array.isArray(response.data.data)) {
            // Ordenar los datos por fechaPermiso descendente
@@ -95,7 +93,7 @@ const PermisoTemporal: React.FC = () => {
       console.error('Error al obtener el historial de permisos:', error);
       setHistorialPermisos([]);
     }
-  }, [API_URL]);
+  }, []);
 
   useEffect(() => {
     const user = ((localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')!) : null) as { user_code: string | null })?.user_code;
@@ -113,9 +111,8 @@ const PermisoTemporal: React.FC = () => {
 
     const fetchUserArea = async () => {
       try {
-        const profileResponse = await axios.get<{ ok: number; data?: UsuarioRegistradoProfile }>(
-          `${API_URL}/usuarios-registrados/${formData.colaboradorID}`,
-          { headers: { 'x-empresa-id': empresaId } }
+        const profileResponse = await apiClient.get<{ ok: number; data?: UsuarioRegistradoProfile }>(
+          `/usuarios-registrados/${formData.colaboradorID}`
         );
         const area = profileResponse.data?.data?.area ?? '';
         if (typeof area === 'string' && area.trim()) {
@@ -127,7 +124,7 @@ const PermisoTemporal: React.FC = () => {
     };
 
     fetchUserArea();
-  }, [API_URL, empresaId, formData.colaboradorID]);
+  }, [empresaId, formData.colaboradorID]);
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = e.target;
@@ -155,7 +152,7 @@ const PermisoTemporal: React.FC = () => {
       if (!formData.area || !formData.area.trim()) {
         delete payload.area;
       }
-      const response = await axios.post<Permiso>(`${API_URL}/permiso-temporal`, payload,{ headers: { 'x-empresa-id': empresaId }});
+      const response = await apiClient.post<Permiso>(`/permiso-temporal`, payload);
       if (response.status === 201) {
         setRefreshKey(oldKey => oldKey + 1);
         setFormData((prevData) => ({

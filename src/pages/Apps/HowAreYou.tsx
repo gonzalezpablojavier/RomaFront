@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { apiClient } from '../../api/apiClient';
 import Presentismo from './Presentismo';
 import { CheckCircleIcon, XCircleIcon } from 'lucide-react';
 
@@ -9,8 +9,6 @@ const HowAreYou: React.FC = () => {
   const [message, setMessage] = useState<string | null>(null);
   const [currentStep, setCurrentStep] = useState(1);
   const [cargando, setCargando] = useState(false);
-  const API_URL = `${import.meta.env.VITE_API_DISTRI_API}`;
-
   useEffect(() => {
     const storedColaboradorID = localStorage.getItem('colaboradorID');
     if (storedColaboradorID) {
@@ -23,7 +21,10 @@ const HowAreYou: React.FC = () => {
   const handleMoodClick = async (selectedMood: string) => {
     setMood(selectedMood);
     try {
-      const response = await axios.post(`${API_URL}/howareyou`, { mood: selectedMood, colaboradorID });
+      const response = await apiClient.post('/howareyou', {
+        mood: selectedMood,
+        colaboradorID: Number(colaboradorID),
+      });
       if (response.data.ok === 1) {
         setMessage('Estado de ánimo grabado exitosamente!');
         setCurrentStep(4);

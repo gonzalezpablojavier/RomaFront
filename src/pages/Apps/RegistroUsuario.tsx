@@ -1,5 +1,7 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import axios from 'axios';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
+import { apiClient } from '../../api/apiClient';
+import { ensureFreshAccessToken } from '../../api/api_auth';
+import { getAreasForEmpresa, getSucursalesForEmpresa } from '../../services/empresaService';
 import {
   TextField,
   Button,
@@ -71,9 +73,6 @@ const initialState: FormData = {
   fechaActualizado: '', // Agrega esta línea
 };
 
-const areas = ['Sistemas', 'Administración', 'Depósito', 'Comercial', 'GerenciaOP', 'Contabilidad', 'Compras', 'TV', 'Gerencia', 'Aoki'];
-const sucursales = ['PICO', 'MDP', 'DIMES', 'ROSARIO'];
-
 const Input = styled('input')({
   display: 'none',
 });
@@ -89,18 +88,27 @@ const RegistroUsuario: React.FC = () => {
   const [isUploadingPhoto, setIsUploadingPhoto] = useState<boolean>(false);
   const [openSnackbar, setOpenSnackbar] = useState(false);
   const [refreshKey, setRefreshKey] = useState(0);
-  const API_URL = `${import.meta.env.VITE_API_DISTRI_API}`;;
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [empresaId, setEmpresaID] = useState<string | null>(null);
+  const areas = useMemo(
+    () => getAreasForEmpresa(empresaId ?? 'default'),
+    [empresaId],
+  );
+  const sucursales = useMemo(
+    () => getSucursalesForEmpresa(empresaId ?? 'default'),
+    [empresaId],
+  );
 
   const fetchUserData = useCallback(async (colaboradorID: string, empresaId: string) => {
     try {
-      const config = {
-        headers: { 'x-empresa-id': empresaId }
-      };
-      const response = await axios.get<{ ok: number; data: FormData }>(`${API_URL}/usuarios-registrados/${colaboradorID}`, config);
+      await ensureFreshAccessToken();
+      const response = await apiClient.get<{ ok: number; data: FormData }>(
+        `/usuarios-registrados/${colaboradorID}`,
+      );
       if (response.data.ok === 1) {
-        setFormData({ ...response.data.data, empresaId });
+        const data = response.data.data;
+        const sucursal = sucursales.includes(data.sucursal) ? data.sucursal : 'MDP';
+        setFormData({ ...data, empresaId, sucursal });
         setColaboradorIDExiste(true);
         if (response.data.data.foto) {
           setFotoPreview(response.data.data.foto);
@@ -115,7 +123,7 @@ const RegistroUsuario: React.FC = () => {
       setError('No se pudo verificar el ID del colaborador. Por favor, intenta de nuevo.');
       setOpenSnackbar(true);
     }
-  }, [API_URL]);
+  }, []);
 
 
   useEffect(() => {
@@ -147,10 +155,10 @@ const RegistroUsuario: React.FC = () => {
 
   const verificarColaboradorID = async (colaboradorID: string) => {
     try {
-      const config = {
-        headers: { 'x-empresa-id': empresaId }
-      };
-      const response = await axios.get<{ ok: number; data: FormData }>(`${API_URL}/usuarios-registrados/${colaboradorID}`, config);
+      await ensureFreshAccessToken();
+      const response = await apiClient.get<{ ok: number; data: FormData }>(
+        `/usuarios-registrados/${colaboradorID}`,
+      );
       if (response.data.ok === 1) {
         setFormData(response.data.data);
         setColaboradorIDExiste(true);
@@ -184,14 +192,10 @@ const RegistroUsuario: React.FC = () => {
     try {
 
       setIsUploadingPhoto(true);
-      const response = await axios.post<{ ok: number; message: string; data: { fotoUrl: string } }>(
-        `${API_URL}/usuarios-registrados/upload`,
+      const response = await apiClient.post<{ ok: number; message: string; data: { fotoUrl: string } }>(
+        '/usuarios-registrados/upload',
         formData,
-        {
-          headers: {
-            'Content-Type': 'multipart/form-data', 'x-empresa-id': empresaId!
-          }
-        }
+        { headers: { 'Content-Type': 'multipart/form-data' } },
       );
 
       if (response.data.ok !== 1) {
@@ -251,13 +255,14 @@ const RegistroUsuario: React.FC = () => {
         empresaId: empresaId,
         fechaActualizado: new Date().toISOString(), // Fuerza la actualización del campo
       };
-      const config = {
-        headers: { 'x-empresa-id': empresaId }
-      };
+      await ensureFreshAccessToken();
       if (colaboradorIDExiste) {
-        await axios.put(`${API_URL}/usuarios-registrados/${formData.colaboradorID}`, userData, config);
+        await apiClient.put(`/usuarios-registrados/${formData.colaboradorID}`, userData);
       } else {
-        const response = await axios.post<FormData>(`${API_URL}/usuarios-registrados/create-if-not-exists/`, userData, config);
+        const response = await apiClient.post<FormData>(
+          '/usuarios-registrados/create-if-not-exists/',
+          userData,
+        );
         setFormData(response.data);
       }
       console.log(userData);

@@ -6,7 +6,7 @@ import { toggleSidebar } from '../../store/themeConfigSlice';
 import Dropdown from '../Dropdown';
 import lw from '/assets/images/logo-head.png';
 import lb from '/assets/images/logo-foot.png';
-import axios from 'axios';
+import { apiClient } from '../../api/apiClient';
 import { getDefaultUserPhotoUrl } from '../../config/env';
 
 
@@ -52,8 +52,7 @@ const Header = () => {
 
 
 
-  const API_URL = `${import.meta.env.VITE_API_DISTRI_API}`;
-
+  
 
 
 
@@ -86,7 +85,7 @@ const Header = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await axios.get(`${API_URL}/notificaciones/${colaboradorID}`, {
+      const res = await apiClient.get(`/notificaciones/${colaboradorID}`, {
         headers: { 'x-empresa-id': empresaID },
       });
       const raw = res.data?.data;
@@ -104,7 +103,7 @@ const Header = () => {
     } finally {
       setLoading(false);
     }
-  }, [colaboradorID, empresaID, API_URL]);
+  }, [colaboradorID, empresaID]);
 
 
 
@@ -123,9 +122,7 @@ const Header = () => {
   const markAllAsRead = async () => {
     if (!colaboradorID || !empresaID) return;
     try {
-      await axios.put(`${API_URL}/notificaciones/mark-all-read/${colaboradorID}`, {}, {
-        headers: { 'x-empresa-id': empresaID }
-      });
+      await apiClient.put(`/notificaciones/mark-all-read/${colaboradorID}`, {});
       fetchNotifications();
     } catch (error) {
       console.error('Error marking all notifications as read:', error);
@@ -166,9 +163,7 @@ const Header = () => {
       return;
     }
     try {
-      const profileResponse = await axios.get(`${API_URL}/usuarios-registrados/${colaboradorID}`, {
-        headers: { 'x-empresa-id': empresaID }
-      });
+      const profileResponse = await apiClient.get(`/usuarios-registrados/${colaboradorID}`);
       if (profileResponse.data.ok === 1) {
         setProfile(profileResponse.data.data);
       } else {
@@ -177,7 +172,7 @@ const Header = () => {
     } catch (error) {
       console.error('Error fetching profile data:', error);
     }
-  }, [colaboradorID, empresaID, API_URL]);
+  }, [colaboradorID, empresaID]);
 
 
   const handleLogout = () => {

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
+import { apiClient } from '../../api/apiClient';
 import { format, parseISO, startOfMonth, endOfMonth, isValid, addDays } from 'date-fns';
 import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
@@ -81,8 +81,7 @@ type EventoCalendario = Vacaciones | Permiso | Ausente;
 
 
 const VacationCalendar: React.FC = () => {
-  const API_URL = `${import.meta.env.VITE_API_DISTRI_API}`;
-  const estados = ['Evaluando', 'Aprobado', 'Rechazado'];
+    const estados = ['Evaluando', 'Aprobado', 'Rechazado'];
 
   const [vacaciones, setVacaciones] = useState<Vacaciones[]>([]);
   const [permisos, setPermisos] = useState<Permiso[]>([]);
@@ -184,16 +183,16 @@ const VacationCalendar: React.FC = () => {
   const fetchData = async () => {
     try {
       const [vacacionesResponse, permisosResponse, registrosResponse, colaboradoresResponse] = await Promise.all([
-        axios.get<Vacaciones[]>(`${API_URL}/vacaciones`, { headers: { 'x-empresa-id': empresaId } }),
-        axios.get<Permiso[]>(`${API_URL}/permiso-temporal`, { headers: { 'x-empresa-id': empresaId } }),
-        axios.get<Registro[]>(`${API_URL}/presentismo`, {
+        apiClient.get<Vacaciones[]>(`/vacaciones`),
+        apiClient.get<Permiso[]>(`/permiso-temporal`),
+        apiClient.get<Registro[]>(`/presentismo`, {
           params: {
             fechaDesde: filtroFechaDesde,
             fechaHasta: filtroFechaHasta,
           },
           headers: { 'x-empresa-id': empresaId }
         }),
-        axios.get<{ ok: number; data: Colaborador[] }>(`${API_URL}/usuarios-registrados`, { headers: { 'x-empresa-id': empresaId } })
+        apiClient.get<{ ok: number; data: Colaborador[] }>(`/usuarios-registrados`)
       ]);
 
       const vacacionesConTipo = vacacionesResponse.data.map(v => ({ ...v, tipo: 'vacaciones' as const }));

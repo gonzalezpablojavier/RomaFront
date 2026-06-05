@@ -1,6 +1,14 @@
 import React, { createContext, useContext, useState, ReactNode, useEffect,useCallback } from 'react';
 import { Route, hasPermission } from '../config/permissions';
 import { ensureFreshAccessToken, setDefaultHeaders } from '../api/api_auth';
+import {
+  clearTenantConfigCache,
+  loadTenantConfig,
+} from '../services/tenantConfigService';
+import {
+  clearTenantRbacCache,
+  hydrateTenantRbac,
+} from '../services/tenantRbacService';
 
 interface AuthContextType {
  
@@ -41,15 +49,28 @@ export const AuthProvider: React.FC<MyComponentProps> = ({ children }) => {
     return localStorage.getItem('l_empresa_id');
   });
 
+  const hydrateTenantConfig = useCallback(async (tenantId: string | null) => {
+    if (!tenantId) return;
+    try {
+      await Promise.all([
+        loadTenantConfig(tenantId),
+        hydrateTenantRbac(tenantId),
+      ]);
+    } catch (err) {
+      console.warn('[tenant] No se pudo cargar config/RBAC del tenant:', err);
+    }
+  }, []);
+
   const recoverSession = useCallback(async () => {
     try {
       await ensureFreshAccessToken();
       setDefaultHeaders();
+      await hydrateTenantConfig(localStorage.getItem('l_empresa_id'));
       return true;
     } catch {
       return false;
     }
-  }, []);
+  }, [hydrateTenantConfig]);
 
   useEffect(() => {
     let alive = true;
@@ -57,6 +78,7 @@ export const AuthProvider: React.FC<MyComponentProps> = ({ children }) => {
       if (isAuthenticated) {
         try {
           await ensureFreshAccessToken();
+          await hydrateTenantConfig(localStorage.getItem('l_empresa_id'));
         } catch {
           // La recuperación silenciosa puede fallar en sesiones viejas sin cookie refresh.
           // No mostramos banner ni limpiamos sesión: solo "Cerrar sesión" desloguea.
@@ -67,7 +89,7 @@ export const AuthProvider: React.FC<MyComponentProps> = ({ children }) => {
     return () => {
       alive = false;
     };
-  }, [isAuthenticated]);
+  }, [isAuthenticated, hydrateTenantConfig]);
 
   const login = useCallback((user: string, empresaId: string) => {
     setUser(user);
@@ -76,7 +98,8 @@ export const AuthProvider: React.FC<MyComponentProps> = ({ children }) => {
     localStorage.setItem('user', JSON.stringify(user));
     localStorage.setItem('l_empresa_id', empresaId);
     localStorage.setItem('isAuthenticated', 'true');
-  }, []);
+    void hydrateTenantConfig(empresaId);
+  }, [hydrateTenantConfig]);
 
   const logout = () => {
     setUser(null);
@@ -87,12 +110,13 @@ export const AuthProvider: React.FC<MyComponentProps> = ({ children }) => {
     localStorage.removeItem('isAuthenticated');
     localStorage.removeItem('authToken');
     localStorage.removeItem('token');
+    clearTenantConfigCache();
+    clearTenantRbacCache();
   };
   
   const checkPermission = (route: Route): boolean => {
     if (!user || !empresaId) return false;
-     console.log('Current user:', user.user_code);
-    return hasPermission( String(user.user_code), route,empresaId);
+    return hasPermission(String(user.user_code), route, empresaId);
   };
 
   return (

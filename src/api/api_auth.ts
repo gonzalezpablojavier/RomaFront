@@ -1,4 +1,5 @@
-import axios from 'axios';
+import axios, { AxiosInstance } from 'axios';
+import { apiClient } from './apiClient';
 
 interface LoginResponse {
   colaboradorID: string;
@@ -18,19 +19,6 @@ const ACCESS_TOKEN_REFRESH_MARGIN_SECONDS = 60;
 function isAuthRequest(config: any) {
   const url = String(config?.url ?? '');
   return url.includes('/auth/login') || url.includes('/auth/refresh');
-}
-
-function isDesempenoRequest(config: any) {
-  const url = String(config?.url ?? '');
-  return url.includes('/desempeno');
-}
-
-function isDesempenoRoute(): boolean {
-  try {
-    return typeof window !== 'undefined' && window.location?.pathname?.includes('/desempeno');
-  } catch {
-    return false;
-  }
 }
 
 function isUnauthorizedError(e: any) {
@@ -80,10 +68,9 @@ export function isAccessTokenUsable(token: string): boolean {
 
 export const loginUser = async (username: string, password: string): Promise<LoginResponse> => {
   try {
-    const response = await axios.post<LoginResponse>(
-      `${import.meta.env.VITE_API_DISTRI_API}/auth/login`, 
+    const response = await apiClient.post<LoginResponse>(
+      '/auth/login',
       { username, password },
-      { withCredentials: true },
     );
 
     console.log('Login response api_auth:', response.data);
@@ -112,16 +99,21 @@ export const setDefaultHeaders = () => {
   const token = localStorage.getItem('authToken') || localStorage.getItem('token');
   const empresaId = localStorage.getItem('l_empresa_id');
 
-  if (token) {
-    axios.defaults.headers.common['Authorization'] = `Bearer ${token}`;
-  } else {
-    delete axios.defaults.headers.common['Authorization'];
-  }
-  if (empresaId) {
-    axios.defaults.headers.common['x-empresa-id'] = empresaId;
-  } else {
-    delete axios.defaults.headers.common['x-empresa-id'];
-  }
+  const applyHeaders = (client: AxiosInstance) => {
+    if (token) {
+      client.defaults.headers.common['Authorization'] = `Bearer ${token}`;
+    } else {
+      delete client.defaults.headers.common['Authorization'];
+    }
+    if (empresaId) {
+      client.defaults.headers.common['x-empresa-id'] = empresaId;
+    } else {
+      delete client.defaults.headers.common['x-empresa-id'];
+    }
+  };
+
+  applyHeaders(axios);
+  applyHeaders(apiClient);
 };
 
 async function refreshAccessToken(): Promise<string> {
@@ -129,11 +121,10 @@ async function refreshAccessToken(): Promise<string> {
 
   refreshPromise = (async () => {
     const empresaId = localStorage.getItem('l_empresa_id');
-    const resp = await axios.post<RefreshResponse>(
-      `${import.meta.env.VITE_API_DISTRI_API}/auth/refresh`,
+    const resp = await apiClient.post<RefreshResponse>(
+      '/auth/refresh',
       null,
       {
-        withCredentials: true,
         headers: empresaId ? { 'x-empresa-id': empresaId } : undefined,
       },
     );
@@ -153,11 +144,6 @@ async function refreshAccessToken(): Promise<string> {
 }
 
 export async function ensureFreshAccessToken(): Promise<string | null> {
-  // En desempeño no forzamos refresh automático (modo "público").
-  if (isDesempenoRoute()) {
-    return localStorage.getItem('authToken') || localStorage.getItem('token');
-  }
-
   const stored = localStorage.getItem('authToken') || localStorage.getItem('token');
 
   try {
@@ -170,22 +156,16 @@ export async function ensureFreshAccessToken(): Promise<string | null> {
   }
 }
 
-const setupAuthInterceptor = () => {
-  // Evita registrar múltiples interceptores (hot reload / imports duplicados)
+function attachAuthInterceptors(client: AxiosInstance) {
   const key = '__rrhh_auth_interceptor__';
-  if ((axios as any)[key]) return;
-  (axios as any)[key] = true;
+  if ((client as any)[key]) return;
+  (client as any)[key] = true;
 
-  axios.interceptors.request.use(async (config) => {
+  client.interceptors.request.use(async (config) => {
     let token = localStorage.getItem('authToken') || localStorage.getItem('token');
     const empresaId = localStorage.getItem('l_empresa_id');
 
-    if (
-      token &&
-      !isAuthRequest(config) &&
-      !isDesempenoRequest(config) &&
-      shouldRefreshAccessToken(token)
-    ) {
+    if (token && !isAuthRequest(config) && shouldRefreshAccessToken(token)) {
       try {
         token = await refreshAccessToken();
       } catch {
@@ -195,7 +175,7 @@ const setupAuthInterceptor = () => {
     }
 
     config.headers = config.headers ?? {};
-    if (token && !isAuthRequest(config) && !isDesempenoRequest(config)) {
+    if (token && !isAuthRequest(config)) {
       (config.headers as any).Authorization = `Bearer ${token}`;
     }
     if (empresaId && !(config.headers as any)['x-empresa-id']) {
@@ -204,16 +184,13 @@ const setupAuthInterceptor = () => {
     return config;
   });
 
-  axios.interceptors.response.use(
+  client.interceptors.response.use(
     (r) => r,
     async (error) => {
       const config = error?.config;
       if (!isUnauthorizedError(error) || !config) throw error;
       if (isAuthRequest(config)) throw error;
-      // En desempeño permitimos modo "público": no forzamos refresh/reintentos.
-      if (isDesempenoRequest(config)) throw error;
 
-      // Evitar loop infinito
       if ((config as any).__retried) throw error;
       (config as any).__retried = true;
 
@@ -226,12 +203,13 @@ const setupAuthInterceptor = () => {
 
       config.headers = config.headers ?? {};
       (config.headers as any).Authorization = `Bearer ${token}`;
-      return axios(config);
+      return client(config);
     },
   );
-};
+}
 
 // Inicialización global (evita 401 por timing tras refresh).
 axios.defaults.withCredentials = true;
-setupAuthInterceptor();
+attachAuthInterceptors(axios as AxiosInstance);
+attachAuthInterceptors(apiClient);
 setDefaultHeaders();

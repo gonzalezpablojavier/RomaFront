@@ -1,8 +1,7 @@
-import React, { useState } from 'react';
-import axios from 'axios';
+import React, { useMemo, useState } from 'react';
+import { apiClient } from '../../api/apiClient';
+import { getSucursalesForEmpresa } from '../../services/empresaService';
 import { X, Calendar, Clock, Users, Search, Eye, Cake, UserX, ListChecks } from 'lucide-react';
-
-const DEFAULT_SUCURSALES = ['PICO', 'MDP', 'DIMES', 'ROSARIO'] as const;
 
 export type ScheduledEventType = 'manual_list' | 'birthday_today' | 'absent_today';
 
@@ -54,7 +53,6 @@ interface ScheduledNotificationModalProps {
   onClose: () => void;
   colaboradores: Colaborador[];
   empresaId?: string;
-  apiUrl: string;
   onScheduleNotification: (scheduleData: ScheduleNotificationData) => Promise<void>;
 }
 
@@ -87,11 +85,14 @@ const ScheduledNotificationModal: React.FC<ScheduledNotificationModalProps> = ({
   onClose,
   colaboradores,
   empresaId,
-  apiUrl,
   onScheduleNotification,
 }) => {
   const resolvedEmpresaId = String(
     empresaId ?? colaboradores[0]?.empresaId ?? 'default',
+  );
+  const defaultSucursales = useMemo(
+    () => getSucursalesForEmpresa(resolvedEmpresaId),
+    [resolvedEmpresaId],
   );
 
   const [formData, setFormData] = useState<ScheduleNotificationData>({
@@ -110,13 +111,13 @@ const ScheduledNotificationModal: React.FC<ScheduledNotificationModalProps> = ({
   const [selectedArea, setSelectedArea] = useState('');
   const [selectedAll, setSelectedAll] = useState(false);
   const [birthdayAreas, setBirthdayAreas] = useState<string[]>([]);
-  const [absentSucursales, setAbsentSucursales] = useState<string[]>([...DEFAULT_SUCURSALES]);
+  const [absentSucursales, setAbsentSucursales] = useState<string[]>([...defaultSucursales]);
   const [preview, setPreview] = useState<RecipientPreview | null>(null);
   const [previewLoading, setPreviewLoading] = useState(false);
 
   const areas = Array.from(new Set(colaboradores.map((c) => c.area))).sort();
   const sucursalesFromData = Array.from(
-    new Set([...DEFAULT_SUCURSALES, ...colaboradores.map((c) => c.sucursal).filter(Boolean)]),
+    new Set([...defaultSucursales, ...colaboradores.map((c) => c.sucursal).filter(Boolean)]),
   ).sort();
 
   const filteredColaboradores = colaboradores.filter((colaborador) => {
@@ -170,8 +171,8 @@ const ScheduledNotificationModal: React.FC<ScheduledNotificationModalProps> = ({
     setPreviewLoading(true);
     setPreview(null);
     try {
-      const { data } = await axios.post<RecipientPreview>(
-        `${apiUrl}/scheduled-notifications/preview-recipients`,
+      const { data } = await apiClient.post<RecipientPreview>(
+        `/scheduled-notifications/preview-recipients`,
         buildPayload(),
       );
       setPreview(data);
@@ -215,7 +216,7 @@ const ScheduledNotificationModal: React.FC<ScheduledNotificationModalProps> = ({
       isActive: true,
     });
     setBirthdayAreas([]);
-    setAbsentSucursales([...DEFAULT_SUCURSALES]);
+    setAbsentSucursales([...defaultSucursales]);
     setPreview(null);
     setSelectedAll(false);
     setSearchQuery('');

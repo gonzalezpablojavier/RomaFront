@@ -3,10 +3,22 @@ import ReactApexChart from 'react-apexcharts';
 import { toast } from 'react-toastify';
 import Swal from 'sweetalert2';
 import { useAuth } from '../../context/AuthContext';
-import { Route, DEPO_SUCURSAL_LEADER_COLAB_IDS } from '../../config/permissions';
+import { Route } from '../../config/permissions';
 import { CRITERIOS_LIDER, CRITERIOS_POR_NIVEL, DESCRIPCION_LIDER, DESCRIPCION_NIVEL, getTrimestreActivoFromDate } from '../../config/desempenoConfig';
-import { getAreasForEmpresa, getManagerAreasForEmpresa, getManagerIdsForEmpresa } from '../../services/empresaService';
+import {
+  getAreasForEmpresa,
+  getDepoSucursalLeaderIds,
+  getManagerAreasForEmpresa,
+  getManagerIdsForEmpresa,
+} from '../../services/empresaService';
+import {
+  canDepoCoordinatorViewSucursalLeader,
+  getDepoCoordinatorIds,
+  getLeaderColaboradorIds,
+  getSucursalCodeForColaborador,
+} from '../../services/tenantRbacService';
 import { desempenoService } from '../../services/desempenoService';
+import { getApiBaseUrl } from '../../api/apiClient';
 import type { CriterioConfig, CriterioPuntaje, Nivel } from '../../types/desempeno';
 
 type TabId = 'resumen' | 'colaboradores' | 'ranking' | 'evolucion';
@@ -50,9 +62,6 @@ function getLeaderLabelByArea(area: any): 'Gerencia' | 'Líder' {
 
 const EXCLUDED_AREAS = new Set(['Directorio']);
 
-/** Coordinador Depósito (150): puede abrir/editar evaluación de líderes de sucursal con criterios operativos. */
-const DEPO_COORDINATOR_SESSION_ID = '150';
-
 function kpiValue(v: any) {
   if (v == null) return '—';
   if (Array.isArray(v)) return v.length;
@@ -68,11 +77,10 @@ function initials(nombreCompleto: string) {
 }
 
 function getColaboradorFotoUrl(foto: string | undefined | null) {
-  const API_URL = `${import.meta.env.VITE_API_DISTRI_API}`;
   const f = (foto || '').trim();
   if (!f || f === 'null') return null;
   if (f.startsWith('http')) return f;
-  return `${API_URL}${f.startsWith('/') ? '' : '/'}${f}`;
+  return `${getApiBaseUrl()}${f.startsWith('/') ? '' : '/'}${f}`;
 }
 
 function formatSucursalPanel(sucursal: any) {
@@ -600,17 +608,17 @@ const PanelDesempeno = () => {
   const sessionColaboradorId = useMemo(() => parseSessionColaboradorId(user), [user]);
   const managerIds = useMemo(() => getManagerIdsForEmpresa(empresa), [empresa]);
   const managerAreas = useMemo(() => getManagerAreasForEmpresa(empresa), [empresa]);
+  const depoSucursalLeaderIds = useMemo(
+    () => getDepoSucursalLeaderIds(empresa),
+    [empresa],
+  );
+  const depoCoordinatorIds = useMemo(() => getDepoCoordinatorIds(), []);
+  const leaderColaboradorIds = useMemo(() => getLeaderColaboradorIds(), []);
   const isManager = managerIds.includes(sessionColaboradorId);
   const managerArea = managerAreas[sessionColaboradorId];
   const isGlobalManager = managerArea === 'GerenciaOP' || managerArea === 'Gerencia';
 
-  const depoSucursalByLeaderId: Record<string, 'PICO' | 'MDP' | 'ROSARIO' | 'DIMES'> = {
-    '251': 'PICO',
-    '215': 'MDP',
-    '328': 'ROSARIO',
-    '262': 'DIMES',
-  };
-  const depoLeaderSucursal = depoSucursalByLeaderId[sessionColaboradorId];
+  const depoLeaderSucursal = getSucursalCodeForColaborador(sessionColaboradorId);
   const depoLeaderSucursalLabel = formatSucursalPanel(depoLeaderSucursal);
   const isDepoSucursalLeader = managerArea === 'Depósito' && !!depoLeaderSucursal && !isGlobalManager;
 
@@ -621,9 +629,9 @@ const PanelDesempeno = () => {
   }, [isDepoSucursalLeader, activeTab]);
 
   const isLeaderProfile = useMemo(() => {
-    const set = new Set((managerIds || []).map((x) => String(x)));
-    return (colaboradorID: any) => set.has(String(colaboradorID));
-  }, [managerIds]);
+    return (colaboradorID: any) =>
+      leaderColaboradorIds.has(String(colaboradorID));
+  }, [leaderColaboradorIds]);
 
   const colabsFiltrados = useMemo(() => {
     if (!colabDrillFilter) return colabs;
@@ -682,11 +690,13 @@ const PanelDesempeno = () => {
       const list = Array.isArray(rows) ? rows : [];
       const withoutExcluded = list.filter((c) => !EXCLUDED_AREAS.has(String(c?.area || '').trim()));
       if (isGlobalManager) return list;
-      const depoLeadersVisibleFor150 = sessionColaboradorId === '150' ? new Set(['251', '215', '328', '262']) : null;
       return withoutExcluded.filter((c) => {
         const colabId = rowColaboradorId(c);
-        const isDepoLeaderException = depoLeadersVisibleFor150?.has(colabId) ?? false;
-        if (isDepoLeaderException) return true;
+        if (
+          canDepoCoordinatorViewSucursalLeader(sessionColaboradorId, colabId)
+        ) {
+          return true;
+        }
         return !isLeaderProfile(colabId);
       });
     };
@@ -806,13 +816,13 @@ const PanelDesempeno = () => {
     if (!selectedColab) return false;
     if (!isLeaderProfile(selectedColab.colaboradorID)) return false;
     if (
-      sessionColaboradorId === DEPO_COORDINATOR_SESSION_ID &&
-      DEPO_SUCURSAL_LEADER_COLAB_IDS.has(String(selectedColab.colaboradorID))
+      depoCoordinatorIds.has(sessionColaboradorId) &&
+      depoSucursalLeaderIds.has(String(selectedColab.colaboradorID))
     ) {
       return false;
     }
     return true;
-  }, [selectedColab, isLeaderProfile, sessionColaboradorId]);
+  }, [selectedColab, isLeaderProfile, sessionColaboradorId, depoCoordinatorIds, depoSucursalLeaderIds]);
 
   const criteriosPorNivelModal = useMemo(() => {
     if (!isLeaderEvalInModal) return criteriosPorNivel;
@@ -1131,7 +1141,7 @@ const PanelDesempeno = () => {
     try {
       const colabId = String(colab?.colaboradorID ?? '');
       const depo150puedeAbrirLiderSucursal =
-        sessionColaboradorId === DEPO_COORDINATOR_SESSION_ID && DEPO_SUCURSAL_LEADER_COLAB_IDS.has(colabId);
+        canDepoCoordinatorViewSucursalLeader(sessionColaboradorId, colabId);
       if (!isGlobalManager && isLeaderProfile(colab?.colaboradorID) && !depo150puedeAbrirLiderSucursal) {
         toast.error('Solo Gerencia puede ver perfiles de líderes.');
         return;
@@ -1468,7 +1478,9 @@ const PanelDesempeno = () => {
                       const score = c.evaluacion?.scoreTotal ?? null;
                       const colors = score == null ? null : getScoreColors(score);
                       const isLeader = isLeaderProfile(c.colaboradorID);
-                      const depoSucursal = depoSucursalByLeaderId[String(c.colaboradorID)];
+                      const depoSucursal = getSucursalCodeForColaborador(
+                        String(c.colaboradorID),
+                      );
                       const nivelLabel = isLeader ? (depoSucursal ? `Lider Depo ${formatSucursalPanel(depoSucursal)}` : getLeaderLabelByArea(c.area)) : c.nivel;
                       const nivelBadge = isLeader ? 'bg-slate-900 text-white' : getNivelBadge(c.nivel);
                       return (

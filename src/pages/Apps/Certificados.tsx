@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
+import { apiClient } from '../../api/apiClient';
 import { buildCertificadoViewUrl } from '../../config/env';
 import { 
   Button, 
@@ -39,12 +39,11 @@ const CertificadoUpload: React.FC = () => {
   const [refreshKey, setRefreshKey] = useState(0);
   const [isLoading, setIsLoading] = useState(false);
   const [empresaId, setEmpresaId] = useState<string>('');
-  const API_URL = `${import.meta.env.VITE_API_DISTRI_API}`;
-
+  
   const obtenerHistorialCertificados = useCallback(async (colaboradorID: string, empresaId: string) => {
     try {
 
-      const response = await axios.get<ApiResponse>(`${API_URL}/certificados/historial/${colaboradorID}?limit=10`,{   headers: { 'x-empresa-id': empresaId }});
+      const response = await apiClient.get<ApiResponse>(`/certificados/historial/${colaboradorID}?limit=10`);
       if (response.data.ok === 1 && Array.isArray(response.data.data)) {
         setHistorialCertificados(response.data.data);
       } else {
@@ -55,7 +54,7 @@ const CertificadoUpload: React.FC = () => {
       console.error('Error al obtener el historial de certificados:', error);
       setHistorialCertificados([]);
     }
-  }, [API_URL]);
+  }, []);
 
   useEffect(() => {
     const user = ((localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')!) : null) as { user_code: string | null })?.user_code;
@@ -101,7 +100,7 @@ const CertificadoUpload: React.FC = () => {
     formData.append('empresaId', empresaId);
 
     try {
-      const response = await axios.post(`${API_URL}/certificados`, formData, {
+      const response = await apiClient.post(`/certificados`, formData, {
         headers: {
           'Content-Type': 'multipart/form-data', 'x-empresa-id': empresaId
         },

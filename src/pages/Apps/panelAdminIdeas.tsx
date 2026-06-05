@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { apiClient } from '../../api/apiClient';
 import { format, parseISO, startOfMonth, endOfMonth } from 'date-fns';
 import { getAreasForEmpresa, getManagerIdsForEmpresa, getManagerAreasForEmpresa } from '../../services/empresaService';
 import IdeaEvaluation from './IdeaEvaluation';
@@ -63,8 +63,7 @@ const PanelAdminIdeas: React.FC = () => {
 
 
 
-  const API_URL = `${import.meta.env.VITE_API_DISTRI_API}`;
-
+  
   useEffect(() => {
     const storedEmpresaID = localStorage.getItem('l_empresa_id');
     if (storedEmpresaID) {
@@ -93,10 +92,7 @@ const PanelAdminIdeas: React.FC = () => {
 
   const fetchIdeas = async () => {
     try {
-      const response = await axios.get(`${API_URL}/idea-box`,
-        {
-          headers: { 'x-empresa-id': empresaId }
-        }
+      const response = await apiClient.get(`/idea-box`
       );
       const sortedIdeas = response.data.sort((a: Idea, b: Idea) => b.id - a.id);
       setIdeas(sortedIdeas);
@@ -108,9 +104,7 @@ const PanelAdminIdeas: React.FC = () => {
 
   const fetchColaboradores = async () => {
     try {
-      const response = await axios.get(`${API_URL}/usuarios-registrados`,{
-        headers: { 'x-empresa-id': empresaId }
-      });
+      const response = await apiClient.get(`/usuarios-registrados`);
       if (response.data.ok === 1 && Array.isArray(response.data.data)) {
         setColaboradores(response.data.data);
       } else {
@@ -153,9 +147,8 @@ const PanelAdminIdeas: React.FC = () => {
   };
   const handleStatusChange = async (ideaId: number, newStatus: string) => {
     try {
-      await axios.post(`${API_URL}/idea-box/${ideaId}/evaluate`, 
-        { estado: newStatus },
-        { headers: { 'x-empresa-id': empresaId } }
+      await apiClient.post(`/idea-box/${ideaId}/evaluate`, 
+        { estado: newStatus }
       );
       fetchIdeas();
     } catch (error) {
@@ -169,9 +162,8 @@ const PanelAdminIdeas: React.FC = () => {
         setError('El puntaje debe estar entre 3 y 5 monedas');
         return;
       }
-      await axios.post(`${API_URL}/idea-box/${ideaId}/evaluate`, 
-        { puntaje: rating },
-        { headers: { 'x-empresa-id': empresaId } }
+      await apiClient.post(`/idea-box/${ideaId}/evaluate`, 
+        { puntaje: rating }
       );
       fetchIdeas();
     } catch (error) {

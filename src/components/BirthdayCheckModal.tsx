@@ -1,7 +1,5 @@
 import React, { useEffect, useState, useCallback } from 'react';
-import axios from 'axios';
-
-const API_URL = `${import.meta.env.VITE_API_DISTRI_API}`;
+import { apiClient } from '../api/apiClient';
 
 /** Retorna true si fechaNacimiento es válida y el colaborador es ≥ 18 años */
 function isValidAdult(fechaNacimiento: string | null | undefined): boolean {
@@ -49,10 +47,8 @@ const BirthdayCheckModal: React.FC = () => {
     const { colaboradorID, empresaId } = getIds();
     if (!colaboradorID || !empresaId) return;
 
-    axios
-      .get(`${API_URL}/usuarios-registrados/${colaboradorID}`, {
-        headers: { 'x-empresa-id': empresaId },
-      })
+    apiClient
+      .get(`/usuarios-registrados/${colaboradorID}`)
       .then((res) => {
         if (res.data?.ok === 1) {
           const data = res.data.data;
@@ -93,9 +89,7 @@ const BirthdayCheckModal: React.FC = () => {
         empresaId,
         fechaActualizado: new Date().toISOString(),
       };
-      await axios.put(`${API_URL}/usuarios-registrados/${colaboradorID}`, payload, {
-        headers: { 'x-empresa-id': empresaId },
-      });
+      await apiClient.put(`/usuarios-registrados/${colaboradorID}`, payload);
       setSuccess(true);
       setTimeout(() => setShow(false), 1800);
     } catch (err) {

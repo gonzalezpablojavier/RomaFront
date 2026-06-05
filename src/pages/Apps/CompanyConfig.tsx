@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { apiClient } from '../../api/apiClient';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
 import { setPageTitle } from '../../store/themeConfigSlice';
@@ -43,8 +43,7 @@ interface EditColaboradorModalProps {
   }
 
 const CompanyConfig = () => {
-  const API_URL = `${import.meta.env.VITE_API_DISTRI_API}`;
-  const { empresaId } = useParams<{ empresaId: string }>();
+    const { empresaId } = useParams<{ empresaId: string }>();
   const dispatch = useDispatch();
   const navigate = useNavigate();
   const [empresaInfo, setEmpresaInfo] = useState<EmpresaInfo | null>(null);
@@ -83,7 +82,7 @@ const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
   const handleScheduleNotification = async (scheduleData: ScheduleNotificationData) => {
     try {
       // Aquí deberías hacer una llamada a tu API para guardar la programación
-      const response = await axios.post(`${API_URL}/scheduled-notifications`, scheduleData);
+      const response = await apiClient.post(`/scheduled-notifications`, scheduleData);
       
       if (response.data) {
         alert('Notificaciones programadas exitosamente');
@@ -98,7 +97,6 @@ const [isScheduleModalOpen, setIsScheduleModalOpen] = useState(false);
 const handleSendBulkNotifications = async (title: string, body: string, selectedIds: number[]) => {
   try {
     const { successCount, errorCount } = await sendBulkPushNotifications(
-      API_URL,
       title,
       body,
       selectedIds,
@@ -437,7 +435,6 @@ const filteredColaboradores = colaboradores.filter(colaborador =>
   onClose={() => setIsScheduleModalOpen(false)}
   colaboradores={colaboradores}
   empresaId={empresaId}
-  apiUrl={API_URL}
   onScheduleNotification={handleScheduleNotification}
 />
 

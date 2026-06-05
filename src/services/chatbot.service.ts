@@ -1,29 +1,19 @@
-import { 
-  SendMessageRequest, 
+import {
+  SendMessageRequest,
   ChatMessageResponse,
   ChatHistoryResponse,
   SessionsResponse,
   ChatStats,
   FAQ,
-  CreateFaqRequest
+  CreateFaqRequest,
 } from '../types/chatbot.types';
-import { getApiUrl } from '../config/env';
-
-const API_BASE_URL = getApiUrl();
+import { apiClient } from '../api/apiClient';
 
 class ChatbotService {
-  private getAuthHeaders(): HeadersInit {
-    const token = localStorage.getItem('token');
-    return {
-      'Content-Type': 'application/json',
-      'Authorization': token ? `Bearer ${token}` : '',
-    };
-  }
-
   private getUserData() {
     const userStr = localStorage.getItem('user');
     const empresaId = localStorage.getItem('l_empresa_id') || 'default';
-    
+
     if (!userStr) {
       throw new Error('No hay usuario autenticado');
     }
@@ -44,125 +34,54 @@ class ChatbotService {
 
     for (let attempt = 1; attempt <= retries; attempt++) {
       try {
-        const response = await fetch(
-          `${API_BASE_URL}/api/chatbot/message?colaboradorID=${colaboradorID}&empresaId=${empresaId}`,
-          {
-            method: 'POST',
-            headers: this.getAuthHeaders(),
-            body: JSON.stringify({ message } as SendMessageRequest),
-          }
+        const { data } = await apiClient.post<ChatMessageResponse>(
+          `/api/chatbot/message?colaboradorID=${colaboradorID}&empresaId=${empresaId}`,
+          { message } as SendMessageRequest,
         );
-
-        if (!response.ok) {
-          throw new Error(`Error: ${response.status} ${response.statusText}`);
-        }
-
-        return response.json();
+        return data;
       } catch (error) {
         lastError = error as Error;
         console.warn(`Intento ${attempt} de ${retries} falló:`, lastError.message);
 
-        // Si no es el último intento, esperar antes de reintentar (backoff exponencial)
         if (attempt < retries) {
-          await new Promise(resolve => setTimeout(resolve, 1000 * attempt));
+          await new Promise((resolve) => setTimeout(resolve, 1000 * attempt));
         }
       }
     }
 
-    // Si llegamos aquí, todos los intentos fallaron
     throw lastError || new Error('Error desconocido al enviar mensaje');
   }
 
-  /**
-   * Obtener historial de una sesión
-   */
   async getHistory(sessionId: string): Promise<ChatHistoryResponse> {
-    const response = await fetch(
-      `${API_BASE_URL}/api/chatbot/history/${sessionId}`,
-      {
-        method: 'GET',
-        headers: this.getAuthHeaders(),
-      }
+    const { data } = await apiClient.get<ChatHistoryResponse>(
+      `/api/chatbot/history/${sessionId}`,
     );
-
-    if (!response.ok) {
-      throw new Error(`Error: ${response.status} ${response.statusText}`);
-    }
-
-    return response.json();
+    return data;
   }
 
-  /**
-   * Listar sesiones del usuario
-   */
   async getSessions(limit = 10, offset = 0): Promise<SessionsResponse> {
-    const response = await fetch(
-      `${API_BASE_URL}/api/chatbot/sessions?limit=${limit}&offset=${offset}`,
-      {
-        method: 'GET',
-        headers: this.getAuthHeaders(),
-      }
+    const { data } = await apiClient.get<SessionsResponse>(
+      `/api/chatbot/sessions?limit=${limit}&offset=${offset}`,
     );
-
-    if (!response.ok) {
-      throw new Error(`Error: ${response.status} ${response.statusText}`);
-    }
-
-    return response.json();
+    return data;
   }
 
-  /**
-   * Obtener estadísticas
-   */
   async getStats(): Promise<ChatStats> {
-    const response = await fetch(`${API_BASE_URL}/api/chatbot/stats`, {
-      method: 'GET',
-      headers: this.getAuthHeaders(),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Error: ${response.status} ${response.statusText}`);
-    }
-
-    return response.json();
+    const { data } = await apiClient.get<ChatStats>('/api/chatbot/stats');
+    return data;
   }
 
-  /**
-   * Obtener todas las FAQs
-   */
   async getFaqs(includeInactive = false): Promise<FAQ[]> {
-    const response = await fetch(
-      `${API_BASE_URL}/api/chatbot/faq?includeInactive=${includeInactive}`,
-      {
-        method: 'GET',
-        headers: this.getAuthHeaders(),
-      }
+    const { data } = await apiClient.get<FAQ[]>(
+      `/api/chatbot/faq?includeInactive=${includeInactive}`,
     );
-
-    if (!response.ok) {
-      throw new Error(`Error: ${response.status} ${response.statusText}`);
-    }
-
-    return response.json();
+    return data;
   }
 
-  /**
-   * Crear nueva FAQ (solo admins)
-   */
   async createFaq(faq: CreateFaqRequest): Promise<FAQ> {
-    const response = await fetch(`${API_BASE_URL}/api/chatbot/faq`, {
-      method: 'POST',
-      headers: this.getAuthHeaders(),
-      body: JSON.stringify(faq),
-    });
-
-    if (!response.ok) {
-      throw new Error(`Error: ${response.status} ${response.statusText}`);
-    }
-
-    return response.json();
+    const { data } = await apiClient.post<FAQ>('/api/chatbot/faq', faq);
+    return data;
   }
 }
 
 export const chatbotService = new ChatbotService();
-

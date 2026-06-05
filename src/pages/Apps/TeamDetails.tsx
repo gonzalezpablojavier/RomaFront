@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import React, { useState, useEffect, useMemo } from 'react';
+import { apiClient, getApiBaseUrl } from '../../api/apiClient';
 import { getAreasForEmpresa } from '../../services/empresaService';
+import { buildLeadersByArea } from '../../services/tenantRbacService';
 
 // Define las interfaces para la tipificación
 interface Stat {
@@ -43,8 +44,7 @@ const TeamDetails: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
-  const API_URL = import.meta.env.VITE_API_DISTRI_API;
-
+  
   // Stats dinámicos basados en datos reales
   const stats: Stat[] = [
     { label: 'AÑOS', value: 50 }, // Podrías calcular esto dinámicamente
@@ -62,7 +62,7 @@ const TeamDetails: React.FC = () => {
       }
       
       // Si es una ruta relativa, construir la URL completa
-      const fullImageUrl = `${API_URL}${colaborador.foto.startsWith('/') ? '' : '/'}${colaborador.foto}`;
+      const fullImageUrl = `${getApiBaseUrl()}${colaborador.foto.startsWith('/') ? '' : '/'}${colaborador.foto}`;
       return fullImageUrl;
     }
     
@@ -139,33 +139,11 @@ const TeamDetails: React.FC = () => {
     return ['Hunter', 'Farmer', 'Faltantes','Analista'];
   };
 
-  // Función para determinar si un colaborador es líder
-  const isLeader = (colaborador: Collaborator, area: string, colaboradoresArea: Collaborator[]) => {
-    // Mapeo de líderes por área (puedes expandir esto con IDs reales)
-    const leadersByArea: { [key: string]: string[] } = {
-      'Sistemas': ['7'], // Agustín Cámpora es el líder de Sistemas
-      'Administración': ['118'], // ID real de manager de Administración
-      'Comercial': ['148'], // ID real de manager de Comercial
-      'Marketing': ['373'], // ID real de manager de Marketing
-      'TV': ['134'], // ID real de manager de TV (Televentas)
-      'Depósito': ['137', '150'], // IDs reales de managers de Depósito
-      'Contabilidad': ['151'], // ID real de manager de Contabilidad
-      'Compras': ['371'], // Alejandro Moreno es el líder de Compras
-      'GerenciaOP': ['149'], // Hector Espinosa es el líder principal de GerenciaOP
-      'Gerencia': ['110'], // ID real de manager de Gerencia
-      // Nota: Aoki y ElMate están ocultos, pero por si aparecen:
-      'Aoki': ['236', '239'], // IDs reales de managers de Aoki
-    };
+  const leadersByArea = useMemo(() => buildLeadersByArea(), []);
 
+  const isLeader = (colaborador: Collaborator, area: string) => {
     const colaboradorID = String(colaborador.colaboradorID);
     const areaLeaders = leadersByArea[area] || [];
-    
-    // Debug para todas las áreas
-    if (areaLeaders.includes(colaboradorID)) {
-      console.log(`🎯 LÍDER DETECTADO: ${colaborador.nombre} ${colaborador.apellido} (ID: ${colaboradorID}) en ${area}`);
-    }
-    
-    // Solo usamos el mapeo específico de líderes
     return areaLeaders.includes(colaboradorID);
   };
 
@@ -287,7 +265,7 @@ const TeamDetails: React.FC = () => {
           tarea:colab.pass,
         role: (area === 'Sistemas' || area === 'TV') ? getAreaRoles(colab, area).join(', ') : colab.area,
         location: colab.sucursal,
-        isLeader: isLeader(colab, area, colaboradoresArea),
+        isLeader: isLeader(colab, area),
       })),
     };
   });
@@ -312,7 +290,7 @@ const TeamDetails: React.FC = () => {
         setAreas(empresaAreas);
         
         // Obtener colaboradores desde la API
-        const response = await axios.get(`${API_URL}/usuarios-registrados`, {
+        const response = await apiClient.get(`/usuarios-registrados`, {
           headers: { 'x-empresa-id': storedEmpresaID },
         });
         

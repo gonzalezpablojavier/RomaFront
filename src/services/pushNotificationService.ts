@@ -1,4 +1,4 @@
-import axios from 'axios';
+import { apiClient } from '../api/apiClient';
 
 export interface BulkPushResult {
     successCount: number;
@@ -10,7 +10,6 @@ export interface BulkPushResult {
  * Envía push vía backend (FCM solo server-side; evita CORS del navegador a Google).
  */
 export async function sendBulkPushNotifications(
-    apiUrl: string,
     title: string,
     body: string,
     selectedIds: number[],
@@ -29,8 +28,8 @@ export async function sendBulkPushNotifications(
     if (empresaId) {
         payload.empresaId = String(empresaId);
     }
-    const { data } = await axios.post<BulkPushResult & { success?: boolean }>(
-        `${apiUrl}/notifications/send-bulk-by-colaboradores`,
+    const { data } = await apiClient.post<BulkPushResult & { success?: boolean }>(
+        '/notifications/send-bulk-by-colaboradores',
         payload,
     );
 

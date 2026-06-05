@@ -2,15 +2,17 @@ import React, { useEffect, useState, useCallback, useRef, useMemo } from 'react'
 import BirthdayCheckModal from '../../components/BirthdayCheckModal';
 import type { PresentismoRef } from './Presentismo';
 import { isAfter, startOfDay, parseISO, differenceInMonths, differenceInDays } from 'date-fns';
-import axios from 'axios';
 import { useNavigate } from 'react-router-dom';
 import { useDispatch } from 'react-redux';
+import { apiClient } from '../../api/apiClient';
+import { ensureFreshAccessToken } from '../../api/api_auth';
+import { useAuth } from '../../context/AuthContext';
 import { toggleSidebar } from '../../store/themeConfigSlice';
 import { requestNotificationPermission } from '../../config/firebase';
 //import Presentismo= React.lazy(() =>  from './Presentismo';
 import { calculateDistance } from '../../utils/geolocation'; // Función para calcular la distancia
 import { formatHoraRegistroArgentina } from '../../utils/horaRegistro';
-import { getNapsisLoginUrl, getQrHomeUrl } from '../../config/env';
+import { getNapsisLoginUrl, getQrHomeUrl, isFirebaseEnabled } from '../../config/env';
 import {
   QrCode,
   TrendingUp,
@@ -74,12 +76,11 @@ const Home: React.FC = () => {
   const [pulsoTileFichaje, setPulsoTileFichaje] = useState<'idle' | 'exito' | 'error'>('idle');
   const [userArea, setUserArea] = useState<string>('');
   const [isButtonDisabled, setIsButtonDisabled] = useState(false); // Nuevo estado para controla
-  const API_URL = `${import.meta.env.VITE_API_DISTRI_API}`;
-  const navigate = useNavigate();
+    const navigate = useNavigate();
   const dispatch = useDispatch();
+  const { isAuthenticated } = useAuth();
 
   const { lastMood, setLastMood, moodMessage, moodPending, submitMood } = useHomeMood({
-    apiUrl: API_URL,
     empresaID,
     colaboradorID,
   });
@@ -113,19 +114,20 @@ const Home: React.FC = () => {
 
 
   useEffect(() => {
+    if (!isAuthenticated) return;
+
     const fetchUserArea = async () => {
       try {
+        await ensureFreshAccessToken();
+
         const user = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')!) : null;
         const userCode = user?.user_code;
         const empresaGuardada = localStorage.getItem('l_empresa_id');
 
         if (!userCode || !empresaGuardada) return;
 
-        const response = await fetch(`${API_URL}/usuarios-registrados`, {
-          headers: { 'x-empresa-id': empresaGuardada }
-        });
-
-        const data = await response.json();
+        const response = await apiClient.get('/usuarios-registrados');
+        const data = response.data;
 
         if (data.ok === 1 && Array.isArray(data.data)) {
           const colaborador = data.data.find((c: any) =>
@@ -133,28 +135,18 @@ const Home: React.FC = () => {
           );
 
           if (colaborador) {
-            console.log('Área encontrada:', colaborador.area);
-            console.log('🔍 Debug - Colaborador encontrado:', colaborador);
-            console.log('🔍 Debug - colaboradorID del colaborador:', colaborador.colaboradorID, 'tipo:', typeof colaborador.colaboradorID);
             setUserArea(colaborador.area);
             setColaboradorID(colaborador.colaboradorID.toString());
 
-            // Verificar si la fecha de actualización es mayor a un mes
-            // if (colaboradoresEspeciales.includes(Number(userCode))) 
             {
-              console.log('No se encontró el colaborador con IDswwwwwwwwwwww:');
-
               // Convertir la fecha de actualización a un objeto Date
               let fechaActualizado;
 
               try {
-                const fechaResponse = await fetch(`${API_URL}/colaborador-auditoria/ultima-actualizacion-domicilio/${userCode}`);
-
-                if (!fechaResponse.ok) {
-                  throw new Error('Error al obtener la fecha de actualización');
-                }
-
-                const fechaData = await fechaResponse.json();
+                const fechaResponse = await apiClient.get(
+                  `/colaborador-auditoria/ultima-actualizacion-domicilio/${userCode}`,
+                );
+                const fechaData = fechaResponse.data;
 
                 // Verificar si fechaData está vacío o es inválido
                 if (!fechaData) {
@@ -204,7 +196,7 @@ const Home: React.FC = () => {
     };
 
     fetchUserArea();
-  }, [API_URL]); // Solo depende de API_URL
+  }, [isAuthenticated]);
 
 
   useEffect(() => {
@@ -212,6 +204,10 @@ const Home: React.FC = () => {
     // No es necesario registrarlo manualmente aquí
 
     const setupNotifications = async () => {
+      if (!isFirebaseEnabled()) {
+        return;
+      }
+
       const token = await requestNotificationPermission();
       if (token) {
         console.log('Token de notificación:', token);
@@ -221,10 +217,9 @@ const Home: React.FC = () => {
 
         if (colaboradorID) {
           try {
-            await axios.post(
-              `${API_URL}/notifications/store-token`,
-              { token, colaboradorID },
-              { headers: { 'x-empresa-id': empresaID } }
+            await apiClient.post(
+              `/notifications/store-token`,
+              { token, colaboradorID }
             );
             console.log('Token almacenado exitosamente en el backend');
           } catch (error) {
@@ -234,7 +229,7 @@ const Home: React.FC = () => {
 
 
         // Aquí podrías enviar este token al backend para guardarlo y vincularlo con el usuario
-        //  await axios.post(`${API_URL}/notifications/send-web-test`, { token, colaboradorID }, { headers: { 'x-empresa-id': empresaID } });
+        //  await apiClient.post(`/notifications/send-web-test`, { token, colaboradorID });
       } else {
         console.log('Permiso de notificación denegado.');
       }
@@ -250,14 +245,11 @@ const Home: React.FC = () => {
     const user = ((localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')!) : null) as { user_code: string | null })?.user_code;
     const storedEmpresa = localStorage.getItem('l_empresa_id');
     const storedColaboradorID = user;
-    console.log('🔍 Debug - user_code del localStorage:', user, 'tipo:', typeof user);
     if (storedColaboradorID) {
-      setColaboradorID(storedColaboradorID);
-      console.log('🔍 Debug - colaboradorID establecido desde localStorage:', storedColaboradorID);
+      setColaboradorID(String(storedColaboradorID));
     }
     if (storedEmpresa) {
       try {
-        console.log(storedEmpresa);
         setEmpresaID(storedEmpresa);
       } catch (error) {
         console.error('Error parsing empresa data:', error);
@@ -273,26 +265,28 @@ const Home: React.FC = () => {
     if (!colaboradorID || !empresaID) return;
 
     try {
-      const config = {
-        headers: { 'x-empresa-id': empresaID }
-      };
+      await ensureFreshAccessToken();
 
-      const profileResponse = await axios.get(`${API_URL}/usuarios-registrados/${colaboradorID}`, config);
+      const profileResponse = await apiClient.get(`/usuarios-registrados/${colaboradorID}`);
       if (profileResponse.data.ok === 1) {
         setProfile(profileResponse.data.data);
       }
 
-      const recibidasFelicitacionResponse = await axios.get(`${API_URL}/feedback/received/counts/${colaboradorID}`, config);
+      const recibidasFelicitacionResponse = await apiClient.get(
+        `/feedback/received/counts/${colaboradorID}`,
+      );
       if (recibidasFelicitacionResponse.data.ok === 1) {
         setfelicitacionesRecibidas(recibidasFelicitacionResponse.data.data.felicitaciones);
       }
 
-      const recibidasRevisionResponse = await axios.get(`${API_URL}/feedback/received/counts/${colaboradorID}`, config);
+      const recibidasRevisionResponse = await apiClient.get(
+        `/feedback/received/counts/${colaboradorID}`,
+      );
       if (recibidasRevisionResponse.data.ok === 1) {
         setrevisionesRecibidas(recibidasRevisionResponse.data.data.revisiones);
       }
 
-      const moodResponse = await axios.get(`${API_URL}/howareyou/${colaboradorID}/last`, config);
+      const moodResponse = await apiClient.get(`/howareyou/${colaboradorID}/last`);
       if (moodResponse.data.ok === 1) {
         const moodDate = parseISO(moodResponse.data.data.date);
         if (!isAfter(startOfDay(new Date()), startOfDay(moodDate))) {
@@ -302,12 +296,12 @@ const Home: React.FC = () => {
         }
       }
 
-      const presentTimeResponse = await axios.get(`${API_URL}/presentismo/${colaboradorID}/last`, config);
+      const presentTimeResponse = await apiClient.get(`/presentismo/${colaboradorID}/last`);
       if (presentTimeResponse.data.ok === 1) {
         setPresentTime(presentTimeResponse.data.data);
       }
 
-      const solicitudResponse = await axios.get(`${API_URL}/permiso-temporal/latest/${colaboradorID}`, config);
+      const solicitudResponse = await apiClient.get(`/permiso-temporal/latest/${colaboradorID}`);
       if (solicitudResponse.data && solicitudResponse.data.fechaPermiso) {
         const fechaPermiso = parseISO(solicitudResponse.data.fechaPermiso);
         if (!isAfter(startOfDay(new Date()), startOfDay(fechaPermiso))) {
@@ -319,17 +313,19 @@ const Home: React.FC = () => {
         setSolicitud(null);
       }
 
-      const vacacionesResponse = await axios.get(`${API_URL}/vacaciones/latest/${colaboradorID}`, config);
+      const vacacionesResponse = await apiClient.get(`/vacaciones/latest/${colaboradorID}`);
       setSolicitudVacaciones(vacacionesResponse.data);
 
-      const response = await axios.get(`${API_URL}/feedback/felicitaciones-disponibles/${colaboradorID}`, config);
+      const response = await apiClient.get(
+        `/feedback/felicitaciones-disponibles/${colaboradorID}`,
+      );
       if (response.data.ok === 1) {
         setFelicitacionesDisponibles(response.data.data.disponibles);
       }
     } catch (error) {
       console.error('Error fetching data:', error);
     }
-  }, [colaboradorID, API_URL, empresaID, setLastMood]);
+  }, [colaboradorID, empresaID, setLastMood]);
 
   useEffect(() => {
     if (colaboradorID) {
@@ -470,7 +466,7 @@ const Home: React.FC = () => {
         try {
 
           // Enviar las coordenadas al backend para fichar automáticamente
-          const response = await axios.post(`${API_URL}/presentismo/fichadoGeo`, {
+          const response = await apiClient.post(`/presentismo/fichadoGeo`, {
             colaboradorID,
             latitud: averageLocation.latitude,
             longitud: averageLocation.longitude,
@@ -537,7 +533,7 @@ const Home: React.FC = () => {
       const { latitude, longitude } = await getCurrentLocation();
 
       // Enviar las coordenadas al backend para fichar automáticamente
-      const response = await axios.post(`${API_URL}/presentismo/fichadoGeo`, {
+      const response = await apiClient.post(`/presentismo/fichadoGeo`, {
         colaboradorID,
         latitud: latitude,
         longitud: longitude,
@@ -605,7 +601,7 @@ const Home: React.FC = () => {
     if (token) {
       console.log('Token de notificación:', token);
       // Envía el token al backend para almacenarlo y utilizarlo para notificaciones
-      await axios.post(`${API_URL}/notifications/register-token`, {
+      await apiClient.post(`/notifications/register-token`, {
         token,
         colaboradorID: 123, // Usar el ID del colaborador o usuario actual
       });
@@ -618,16 +614,11 @@ const Home: React.FC = () => {
 
   // Efecto para iniciar el monitoreo si el área es "Comercial"
   useEffect(() => {
-    if (userArea === "Comercial" && colaboradorID) {
-      console.log("Área Comercial detectada. Iniciando monitoreo...");
+    if (userArea === 'Comercial' && colaboradorID) {
       // const stopMonitoring = monitorLocation(colaboradorID);
-
-      // Limpiar el monitoreo cuando el componente se desmonte
       // return stopMonitoring;
-    } else {
-      console.log("Monitoreo no iniciado. Área:", userArea);
     }
-  }, [userArea, colaboradorID]); // Dependencias: userArea y colaboradorID
+  }, [userArea, colaboradorID]);
 
   // Función para manejar el clic en el mensaje
   const handleMessageClick = () => {

@@ -5,6 +5,32 @@ import { config } from 'dotenv';
 const root = process.cwd();
 config({ path: path.join(root, '.env') });
 
+const output = path.join(root, 'public', 'firebase-messaging-sw.js');
+
+function isFirebaseEnabled() {
+  const flag = String(process.env.VITE_FIREBASE_ENABLED ?? '').toLowerCase();
+  if (flag === 'false' || flag === '0' || flag === 'no') return false;
+  if (flag === 'true' || flag === '1' || flag === 'yes') return true;
+
+  const apiKey = String(process.env.VITE_FIREBASE_API_KEY ?? '').trim();
+  const vapidKey = String(process.env.VITE_FIREBASE_VAPID_KEY ?? '').trim();
+  if (!apiKey || !vapidKey) return false;
+  if (apiKey.toLowerCase().includes('dummy') || vapidKey === 'placeholder') {
+    return false;
+  }
+  return true;
+}
+
+if (!isFirebaseEnabled()) {
+  const stub = `// Firebase push deshabilitado (VITE_FIREBASE_ENABLED=false o sin credenciales)
+self.addEventListener('install', () => self.skipWaiting());
+self.addEventListener('activate', (event) => event.waitUntil(self.clients.claim()));
+`;
+  fs.writeFileSync(output, stub, 'utf8');
+  console.log(`[firebase-sw] Push deshabilitado — stub en ${output}`);
+  process.exit(0);
+}
+
 const required = [
   'VITE_FIREBASE_API_KEY',
   'VITE_FIREBASE_AUTH_DOMAIN',
@@ -72,6 +98,5 @@ self.addEventListener('notificationclick', (event) => {
 });
 `;
 
-const output = path.join(root, 'public', 'firebase-messaging-sw.js');
 fs.writeFileSync(output, content, 'utf8');
 console.log(`[firebase-sw] Generado ${output}`);

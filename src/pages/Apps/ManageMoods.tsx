@@ -1,6 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import React, { useState, useEffect, useMemo } from 'react';
+import { apiClient } from '../../api/apiClient';
 import { format } from 'date-fns';
+import {
+  getAreasForEmpresa,
+  getManagerAreasForEmpresa,
+  getManagerIdsForEmpresa,
+} from '../../services/empresaService';
+import { getTenantAreaNames } from '../../services/tenantRbacService';
 
 
 interface Mood {
@@ -49,57 +55,38 @@ const ManageMoods: React.FC = () => {
     };
   }, []);
   const [empresaId, setEmpresaId] = useState<string>('');
-  const areas = ['Sistemas', 'Administración', 'Depósito', 'Comercial', 'GerenciaOP', 'Contabilidad', 'Compras', 'TV', 'Gerencia','Aoki'];
+  const areas = useMemo(() => {
+    const fromCatalog = getTenantAreaNames();
+    if (fromCatalog.length) return fromCatalog;
+    return empresaId ? getAreasForEmpresa(empresaId) : [];
+  }, [empresaId]);
 
   const moodEmojis = {
     contento: '😊',
     enojado: '😠',
     mal: '😢',
   };
- 
-  const API_URL = `${import.meta.env.VITE_API_DISTRI_API}`;
-  const MANAGER_IDS = ['4', '7', '134','147','148','149','150','151','110','8','118','236','239','9999'];
-  const MANAGER_AREAS: { [key: string]: string } = {
-    '118': 'Administración',
-    '7': 'Sistemas',
-    '134': 'TV',
-    '137': 'Depósito',
-    '148': 'Comercial',
-    '149': 'GerenciaOP',
-    '150': 'Depósito',
-    '151': 'Contabilidad',
-    '110': 'Gerencia',
-    '8': 'GerenciaOP',
-    '236': 'Aoki',
-     '239': 'Aoki', 
-     '9999': 'Sistemas'
-  };
 
   useEffect(() => {
-    
-    const userID  = ((localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')!) : null) as { user_code: string | null })?.user_code;
-    console.log("Usuario ID obtenido del localStorage:", userID);
-    console.log("Tipo de userID:", typeof userID);
-    console.log("MANAGER_IDS:", MANAGER_IDS);
-    console.log("MANAGER_AREAS:", MANAGER_AREAS);
-    const storedEmpresaID = localStorage.getItem('l_empresa_id');
-    console.log("Empresa ID obtenido del localStorage:", storedEmpresaID);
-    if (userID) {
-      setCurrentUserID(userID);
-      const userIDString = userID.toString();
-      console.log("user" + userID);
-      console.log("¿userID está en MANAGER_IDS?", MANAGER_IDS.includes(userIDString));
-     
-      if (MANAGER_IDS.includes(userIDString)) {
-        const userArea = MANAGER_AREAS[userIDString];
-        console.log("area: " + userArea);
+    const userID = (
+      localStorage.getItem('user')
+        ? JSON.parse(localStorage.getItem('user')!)
+        : null
+    ) as { user_code: string | null } | null;
+    const userCode = userID?.user_code;
+    const storedEmpresaID = localStorage.getItem('l_empresa_id') || 'default';
+    if (userCode) {
+      setCurrentUserID(String(userCode));
+      const userIDString = String(userCode);
+      const managerIds = getManagerIdsForEmpresa(storedEmpresaID);
+      const managerAreas = getManagerAreasForEmpresa(storedEmpresaID);
+      if (managerIds.includes(userIDString)) {
+        const userArea = managerAreas[userIDString];
         if (userArea) {
           setCurrentUserArea(userArea);
           if (userArea !== 'Gerencia' && userArea !== 'GerenciaOP') {
             setFiltroArea(userArea);
           }
-        } else {
-          console.error(`Área no encontrada para el ID de usuario: ${userID}`);
         }
       }
     }
@@ -130,10 +117,7 @@ const ManageMoods: React.FC = () => {
 
   const fetchMoods = async (empresaId: string) => {
     try {
-      const response = await axios.get(`${API_URL}/howareyou`,
-        {
-          headers: { 'x-empresa-id': empresaId }
-        }
+      const response = await apiClient.get(`/howareyou`
       );
       const sortedMoods = response.data.sort((a: Mood, b: Mood) => 
         new Date(b.date).getTime() - new Date(a.date).getTime()
@@ -147,11 +131,8 @@ const ManageMoods: React.FC = () => {
 
   const fetchColaboradores = async (empresaId: string) => {
     try {
-      const response = await axios.get(`${API_URL}/usuarios-registrados`
-        ,
-        {
-          headers: { 'x-empresa-id': empresaId }
-        }
+      const response = await apiClient.get(`/usuarios-registrados`
+        
 
       );
       if (response.data.ok === 1 && Array.isArray(response.data.data)) {
@@ -198,7 +179,9 @@ const ManageMoods: React.FC = () => {
     setFiltroMood(mood === filtroMood ? '' : mood);
   };
 
-  const isManager = currentUserID && MANAGER_IDS.includes(currentUserID);
+  const isManager =
+    !!currentUserID &&
+    getManagerIdsForEmpresa(empresaId || 'default').includes(currentUserID);
   const canViewAllAreas = currentUserArea === 'Gerencia' || currentUserArea === 'GerenciaOP';
 
   return (

@@ -1,5 +1,5 @@
 import React, { useState, useEffect,useCallback  } from 'react';
-import axios from 'axios';
+import { apiClient } from '../../api/apiClient';
 import { format } from 'date-fns';
 import { getAreasForEmpresa, getManagerIdsForEmpresa, getManagerAreasForEmpresa } from '../../services/empresaService';
 
@@ -66,8 +66,7 @@ const PanelFeedBack: React.FC = () => {
 
 
   
-  const API_URL = `${import.meta.env.VITE_API_DISTRI_API}`;
-
+  
   useEffect(() => {
     const storedEmpresaID = localStorage.getItem('l_empresa_id');
     if (storedEmpresaID) {
@@ -92,19 +91,19 @@ const PanelFeedBack: React.FC = () => {
   const fetchFeedbacks = useCallback(async () => {
     if (!empresaId) return;
     try {
-      const response = await axios.get(`${API_URL}/feedback`, { headers: { 'x-empresa-id': empresaId } });
+      const response = await apiClient.get(`/feedback`);
       const sortedFeedbacks = response.data.sort((a: Feedback, b: Feedback) => b.id - a.id);
       setFeedbacks(sortedFeedbacks);
     } catch (error) {
       setError('Error al obtener los feedbacks');
       console.error(error);
     }
-  }, [API_URL, empresaId]);
+  }, [empresaId]);
 
   const fetchColaboradores = useCallback(async () => {
     if (!empresaId) return;
     try {
-      const response = await axios.get(`${API_URL}/usuarios-registrados`, { headers: { 'x-empresa-id': empresaId } });
+      const response = await apiClient.get(`/usuarios-registrados`);
       if (response.data.ok === 1 && Array.isArray(response.data.data)) {
         setColaboradores(response.data.data);
       } else {
@@ -116,7 +115,7 @@ const PanelFeedBack: React.FC = () => {
       setError('Error al obtener los colaboradores');
       setColaboradores([]);
     }
-  }, [API_URL, empresaId]);
+  }, [empresaId]);
 
   useEffect(() => {
     if (empresaId) {

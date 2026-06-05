@@ -1,5 +1,4 @@
-import axios from 'axios';
-const API_URL = import.meta.env.VITE_API_DISTRI_API;
+import { apiClient, isAxiosError } from '../api/apiClient';
 interface Empresa {
   id: number;
   nombre: string;
@@ -70,12 +69,17 @@ export interface LoginResponse {
 
 export const loginEmpresa = async (credentials: LoginCredentials): Promise<LoginResponse> => {
   try {
-
-  
-    const response = await axios.post<LoginResponse>(`${API_URL}/auth/login-empresa`, credentials);
-    return response.data;
+    const response = await apiClient.post<LoginResponse>('/auth/login-empresa', credentials);
+    const data = response.data;
+    if (data.token) {
+      localStorage.setItem('empresaToken', data.token);
+      localStorage.setItem('l_empresa_id', String(data.id));
+      apiClient.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
+      apiClient.defaults.headers.common['x-empresa-id'] = String(data.id);
+    }
+    return data;
   } catch (error) {
-    if (axios.isAxiosError(error)) {
+    if (isAxiosError(error)) {
       if (error.response) {
         throw new Error(error.response.data.message || 'Error al iniciar sesión');
       } else if (error.request) {
@@ -96,10 +100,10 @@ export const loginEmpresa = async (credentials: LoginCredentials): Promise<Login
 // Función para obtener información de la empresa
 export const getEmpresaInfo = async (empresaId: number): Promise<EmpresaInfo> => {
   try {
-    const response = await axios.get<EmpresaInfo>(`${API_URL}/empresas/${empresaId}`);
+    const response = await apiClient.get<EmpresaInfo>(`/empresas/${empresaId}`);
     return response.data;
   } catch (error) {
-    if (axios.isAxiosError(error)) {
+    if (isAxiosError(error)) {
       if (error.response) {
         throw new Error(error.response.data.message || 'Error al obtener información de la empresa');
       } else if (error.request) {
@@ -116,13 +120,13 @@ export const getEmpresaInfo = async (empresaId: number): Promise<EmpresaInfo> =>
 // Función para añadir un colaborador
 export const addColaborador = async (colaboradorData: Colaborador): Promise<Colaborador> => {
   try {
-    const response = await axios.post<Colaborador>(
-      `${API_URL}/colaboradores`,
-      { ...colaboradorData}
+    const response = await apiClient.post<Colaborador>(
+      '/colaboradores',
+      { ...colaboradorData},
     );
     return response.data;
   } catch (error) {
-    if (axios.isAxiosError(error)) {
+    if (isAxiosError(error)) {
       if (error.response) {
         throw new Error(error.response.data.message || 'Error al añadir colaborador');
       } else if (error.request) {
@@ -139,13 +143,13 @@ export const addColaborador = async (colaboradorData: Colaborador): Promise<Cola
 
 export const updateColaboradorUserPass = async (colaboradorId: number,colaboradorData: Colaborador): Promise<Colaborador> => {
   try {
-    const response = await axios.put<Colaborador>(
-      `${API_URL}/usuarios-registrados/by-empresaId/${colaboradorData.colaboradorID}`,
-      colaboradorData
+    const response = await apiClient.put<Colaborador>(
+      `/usuarios-registrados/by-empresaId/${colaboradorData.colaboradorID}`,
+      colaboradorData,
     );
     return response.data;
   } catch (error) {
-    if (axios.isAxiosError(error)) {
+    if (isAxiosError(error)) {
       if (error.response) {
         throw new Error(error.response.data.message || 'Error al actualizar colaborador');
       } else if (error.request) {
@@ -161,13 +165,13 @@ export const updateColaboradorUserPass = async (colaboradorId: number,colaborado
 
 export const updateColaborador = async (colaboradorData: Colaborador): Promise<Colaborador> => {
   try {
-    const response = await axios.put<Colaborador>(
-      `${API_URL}/usuarios-registrados/by-empresaId/${colaboradorData.colaboradorID}`,
-      colaboradorData
+    const response = await apiClient.put<Colaborador>(
+      `/usuarios-registrados/by-empresaId/${colaboradorData.colaboradorID}`,
+      colaboradorData,
     );
     return response.data;
   } catch (error) {
-    if (axios.isAxiosError(error)) {
+    if (isAxiosError(error)) {
       if (error.response) {
         throw new Error(error.response.data.message || 'Error al actualizar colaborador');
       } else if (error.request) {
@@ -183,10 +187,10 @@ export const updateColaborador = async (colaboradorData: Colaborador): Promise<C
 // Función para actualizar información de la empresa
 export const updateEmpresaInfo = async (empresaId: number, empresaData: Partial<EmpresaInfo>): Promise<EmpresaInfo> => {
   try {
-    const response = await axios.put<EmpresaInfo>(`${API_URL}/empresas/${empresaId}`, empresaData);
+    const response = await apiClient.put<EmpresaInfo>(`/empresas/${empresaId}`, empresaData);
     return response.data;
   } catch (error) {
-    if (axios.isAxiosError(error)) {
+    if (isAxiosError(error)) {
       if (error.response) {
         throw new Error(error.response.data.message || 'Error al actualizar información de la empresa');
       } else if (error.request) {
@@ -203,9 +207,9 @@ export const updateEmpresaInfo = async (empresaId: number, empresaData: Partial<
 // Función para eliminar un colaborador
 export const deleteColaborador = async (colaboradorId: number): Promise<void> => {
   try {
-    await axios.delete(`${API_URL}/colaboradores/${colaboradorId}`);
+    await apiClient.delete(`/colaboradores/${colaboradorId}`);
   } catch (error) {
-    if (axios.isAxiosError(error)) {
+    if (isAxiosError(error)) {
       if (error.response) {
         throw new Error(error.response.data.message || 'Error al eliminar colaborador');
       } else if (error.request) {
@@ -223,11 +227,10 @@ export const deleteColaborador = async (colaboradorId: number): Promise<void> =>
 
 export const getUsuariosRegistrados = async (empresaId: string): Promise<{ ok: number; message: string; data: UsuarioRegistrado[] }> => {
   try {
-    const response = await fetch(`${API_URL}/usuarios-registrados/by-empresaId/${empresaId}`);
-    if (!response.ok) {
-      throw new Error('Failed to fetch usuarios registrados');
-    }
-    return response.json();
+    const response = await apiClient.get<{ ok: number; message: string; data: UsuarioRegistrado[] }>(
+      `/usuarios-registrados/by-empresaId/${empresaId}`,
+    );
+    return response.data;
   } catch (error) {
     console.error('Error fetching usuarios registrados:', error);
     throw error;
@@ -235,10 +238,10 @@ export const getUsuariosRegistrados = async (empresaId: string): Promise<{ ok: n
 };
 export const createEmpresa = async (empresaData: Partial<Empresa>): Promise<Empresa> => {
   try {
-    const response = await axios.post<Empresa>(`${API_URL}/empresas`, empresaData);
+    const response = await apiClient.post<Empresa>('/empresas', empresaData);
     return response.data;
   } catch (error) {
-    if (axios.isAxiosError(error)) {
+    if (isAxiosError(error)) {
       if (error.response) {
         throw new Error(error.response.data.message || 'Error al crear la empresa');
       } else if (error.request) {

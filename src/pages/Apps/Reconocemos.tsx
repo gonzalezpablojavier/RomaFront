@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { apiClient } from '../../api/apiClient';
 import { format, parse, startOfMonth, endOfMonth, startOfYear, endOfYear, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
 
@@ -43,8 +43,7 @@ const Reconocemos: React.FC = () => {
   );
   const [error, setError] = useState<string | null>(null);
   const [empresaId, setEmpresaId] = useState<string>('');  
-  const API_URL = `${import.meta.env.VITE_API_DISTRI_API}`;
-
+  
 
   useEffect(() => {
     const storedEmpresa = localStorage.getItem('l_empresa_id');
@@ -68,7 +67,7 @@ const Reconocemos: React.FC = () => {
 
   const fetchFeedbacks = async (empresaId:string) => {
     try {
-      const response = await axios.get(`${API_URL}/feedback`,{  headers: { 'x-empresa-id': empresaId }});
+      const response = await apiClient.get(`/feedback`);
       setFeedbacks(response.data);
     } catch (error) {
       setError('Error al obtener los feedbacks');
@@ -78,7 +77,7 @@ const Reconocemos: React.FC = () => {
 
   const fetchColaboradores = async (empresaId:string) => {
     try {
-      const response = await axios.get(`${API_URL}/usuarios-registrados`,{  headers: { 'x-empresa-id': empresaId }});
+      const response = await apiClient.get(`/usuarios-registrados`);
       if (response.data.ok === 1 && Array.isArray(response.data.data)) {
         setColaboradores(response.data.data);
       } else {

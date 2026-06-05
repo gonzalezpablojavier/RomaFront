@@ -1,6 +1,7 @@
 import React, { useEffect, useImperativeHandle, useRef, useState, forwardRef } from 'react';
 import { Html5Qrcode } from 'html5-qrcode';
 import { CheckCircle2, CircleAlert } from 'lucide-react';
+import { apiClient, isAxiosError } from '../../api/apiClient';
 
 export type PresentismoRef = {
   iniciarCamaraSiPuede: () => void;
@@ -91,6 +92,31 @@ function interpretarRespuestaPresentismo(
   return { success: true };
 }
 
+async function registrarPresentismo(
+  datos: Record<string, unknown>,
+): Promise<{ success: boolean; message?: string }> {
+  try {
+    const respuesta = await apiClient.post('/presentismo', datos);
+    return interpretarRespuestaPresentismo(respuesta.data, true);
+  } catch (error) {
+    if (isAxiosError(error) && error.response) {
+      const body = error.response.data;
+      let json: unknown = body;
+      if (typeof body === 'string' && body.trim()) {
+        try {
+          json = JSON.parse(body);
+        } catch {
+          return {
+            success: false,
+            message: body.slice(0, 180) || 'Error en la solicitud al servidor',
+          };
+        }
+      }
+      return interpretarRespuestaPresentismo(json, false);
+    }
+    return { success: false, message: 'Error en la solicitud al servidor' };
+  }
+}
 
 interface Registro {
   id: number;
@@ -162,8 +188,7 @@ const Presentismo = forwardRef<PresentismoRef, PresentismoProps>(function Presen
     mensaje: ''
   });
   const [userArea, setUserArea] = useState<string>('');
-  const API_URL = `${import.meta.env.VITE_API_DISTRI_API}`;
-  const [tipo, setTipo] = useState<'entrada' | 'salida'>('entrada');
+    const [tipo, setTipo] = useState<'entrada' | 'salida'>('entrada');
   const [tipoPresencial, setTipoPresente] = useState<'Ofi' | 'Home'>('Ofi');
   const [token, setToken] = useState('');
   const COMERCIAL_TOKEN = 'COM2024';
@@ -198,18 +223,7 @@ const Presentismo = forwardRef<PresentismoRef, PresentismoProps>(function Presen
 
     console.log('colaborado:', usuario);
     try {
-      const respuesta = await fetch(`${API_URL}/presentismo/resumen-dia/${usuario}`, {
-        headers: {
-          'x-empresa-id': empresaGuardada,
-        },
-      });
-
-      if (!respuesta.ok) {
-        console.error('Error al obtener resumen del día');
-        return;
-      }
-
-      const resumen: ResumenDia = await respuesta.json();
+      const { data: resumen } = await apiClient.get<ResumenDia>(`/presentismo/resumen-dia/${usuario}`);
       console.log('Resumen recibido:', resumen);
       setResumenDia(resumen);
     } catch (error) {
@@ -298,31 +312,7 @@ const Presentismo = forwardRef<PresentismoRef, PresentismoProps>(function Presen
     };
 
     try {
-      const respuesta = await fetch(`${API_URL}/presentismo`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-empresa-id': empresaEfectiva,
-        },
-        body: JSON.stringify(datos),
-      });
-
-      const rawText = await respuesta.text();
-      let respuestaJSON: unknown = null;
-      if (rawText.trim()) {
-        try {
-          respuestaJSON = JSON.parse(rawText);
-        } catch {
-          return {
-            success: false,
-            message: respuesta.ok
-              ? 'Respuesta inválida del servidor'
-              : (rawText.slice(0, 180) || 'Error en la solicitud al servidor'),
-          };
-        }
-      }
-
-      const interpretado = interpretarRespuestaPresentismo(respuestaJSON, respuesta.ok);
+      const interpretado = await registrarPresentismo(datos);
       if (!interpretado.success) {
         return {
           success: false,
@@ -338,7 +328,6 @@ const Presentismo = forwardRef<PresentismoRef, PresentismoProps>(function Presen
 
       return {
         success: true,
-        data: respuestaJSON,
         message:
           interpretado.message && interpretado.message.trim().length > 0
             ? `${etiquetaTipo} registrada a las ${horaCorta} (${lugar}). ${interpretado.message}`
@@ -419,27 +408,7 @@ const Presentismo = forwardRef<PresentismoRef, PresentismoProps>(function Presen
 
       setProcesandoRegistro(true);
       try {
-        const respuesta = await fetch(`${API_URL}/presentismo`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-empresa-id': empresaEfectiva,
-          },
-          body: JSON.stringify(datos),
-        });
-
-        const rawText = await respuesta.text();
-        let respuestaJSON: unknown = null;
-        if (rawText.trim()) {
-          try {
-            respuestaJSON = JSON.parse(rawText);
-          } catch {
-            mostrarEstadoEscaneo(false, 'Respuesta inválida del servidor');
-            return;
-          }
-        }
-
-        const interpretado = interpretarRespuestaPresentismo(respuestaJSON, respuesta.ok);
+        const interpretado = await registrarPresentismo(datos);
         if (!interpretado.success) {
           mostrarEstadoEscaneo(false, interpretado.message || 'Error al registrar el presente');
           return;
@@ -560,11 +529,7 @@ const Presentismo = forwardRef<PresentismoRef, PresentismoProps>(function Presen
 
         if (!userCode || !empresaGuardada) return;
 
-        const response = await fetch(`${API_URL}/usuarios-registrados`, {
-          headers: { 'x-empresa-id': empresaGuardada }
-        });
-
-        const data = await response.json();
+        const { data } = await apiClient.get('/usuarios-registrados');
 
         if (data.ok === 1 && Array.isArray(data.data)) {
           const colaborador = data.data.find((c: any) =>
@@ -584,7 +549,7 @@ const Presentismo = forwardRef<PresentismoRef, PresentismoProps>(function Presen
     };
 
     fetchUserArea();
-  }, [API_URL]); // Solo depende de API_URL
+  }, []);
 
 
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { apiClient } from '../../api/apiClient';
 import {
     getManagerIdsForEmpresa,
     getManagerAreasForEmpresa,
@@ -97,8 +97,7 @@ const areas = [
 ];
 const ColaboradoresList: React.FC = () => {
     // URL base
-    const API_URL = `${import.meta.env.VITE_API_DISTRI_API}`;
-
+    
     // Estados
     const [empresaId, setEmpresaId] = useState('');
     const [managerIds, setManagerIds] = useState<number[]>([]);
@@ -159,8 +158,8 @@ const ColaboradoresList: React.FC = () => {
     const handleVerHorasTrabajadas = async (colaborador: Colaborador) => {
         try {
             // Llamada al endpoint con mes/año seleccionados
-            const response = await axios.get(
-                `${API_URL}/presentismo/horastrabajadas?colaboradorID=${colaborador.colaboradorID}&anio=${anioHoras}&mes=${mesHoras}`
+            const response = await apiClient.get(
+                `/presentismo/horastrabajadas?colaboradorID=${colaborador.colaboradorID}&anio=${anioHoras}&mes=${mesHoras}`
             );
             console.log('Respuesta completa horasTrabajadas:', response.data);
             
@@ -246,10 +245,8 @@ const ColaboradoresList: React.FC = () => {
         setManagerAreas(empresaManagerAreas);
         // Llamada para obtener colaboradores
         // 1) Obtener la lista de colaboradores
-        axios
-            .get(`${API_URL}/usuarios-registrados`, {
-                headers: { 'x-empresa-id': storedEmpresaID },
-            })
+        apiClient
+            .get(`/usuarios-registrados`)
             .then(async (res) => {
                 if (res.data.ok !== 1 || !Array.isArray(res.data.data)) {
                     console.warn('La respuesta no es la esperada:', res.data);
@@ -271,8 +268,8 @@ const ColaboradoresList: React.FC = () => {
 
                             // Llamas EN PARALELO a ambos endpoints
                             const [auditRes] = await Promise.all([
-                                axios.get(`${API_URL}/colaborador-auditoria/ultima-actualizacion/${col.colaboradorID}`),
-                                // axios.get(`${API_URL}/presentismo/horastrabajadas?colaboradorID=${col.colaboradorID}&anio=${anio}&mes=${mes}`),
+                                apiClient.get(`/colaborador-auditoria/ultima-actualizacion/${col.colaboradorID}`),
+                                // apiClient.get(`/presentismo/horastrabajadas?colaboradorID=${col.colaboradorID}&anio=${anio}&mes=${mes}`),
                             ]);
 
                             const dataAuditoria = auditRes.data;  // Devuelve { telefono, codpostal, ... }
@@ -310,7 +307,7 @@ const ColaboradoresList: React.FC = () => {
                 console.error('Error al obtener los colaboradores:', err);
                 setError('Error al obtener los colaboradores');
             });
-    }, [API_URL]);
+    }, []);
 
 
     // Manejo de error básico
@@ -348,7 +345,6 @@ const ColaboradoresList: React.FC = () => {
     const handleSendBulkNotifications = async (title: string, body: string, selectedIds: number[]) => {
         try {
             const { successCount, errorCount } = await sendBulkPushNotifications(
-                API_URL,
                 title,
                 body,
                 selectedIds,

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
+import { apiClient } from '../../api/apiClient';
 import { 
   Button, 
   Table, 
@@ -44,12 +44,10 @@ const IdeaBox: React.FC = () => {
   const [empresaId, setEmpresaId] = useState<string>('');
   const [areas, setAreas] = useState<string[]>([]);
   const [filtroArea, setFiltroArea] = useState('');
-  const API_URL = `${import.meta.env.VITE_API_DISTRI_API}`;
-  const [areaDestino, setAreaDestino] = useState('');
+    const [areaDestino, setAreaDestino] = useState('');
   const obtenerHistorialIdeas = useCallback(async (colaboradorID: string,empresaId:string) => {
     try {
-      const response = await axios.get<Idea[]>(`${API_URL}/idea-box/colaborador/${colaboradorID}`,
-        {   headers: { 'x-empresa-id': empresaId }}
+      const response = await apiClient.get<Idea[]>(`/idea-box/colaborador/${colaboradorID}`
       );
    
         setHistorialIdeas(response.data);
@@ -58,7 +56,7 @@ const IdeaBox: React.FC = () => {
       console.error('Error al obtener el historial de ideas:', error);
       setHistorialIdeas([]);
     }
-  }, [API_URL]);
+  }, []);
 
 
   
@@ -104,13 +102,11 @@ const IdeaBox: React.FC = () => {
 
     setIsLoading(true);
     try {
-      const response = await axios.post(`${API_URL}/idea-box`, {
+      const response = await apiClient.post(`/idea-box`, {
         colaboradorID,
         idea,
         empresaId,
         areaDestino
-      }, {
-        headers: { 'x-empresa-id': empresaId }
       });
       if (response.data.ok === 1) {
         setRefreshKey(oldKey => oldKey + 1);

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
+import { apiClient } from '../../api/apiClient';
 import { 
   TextField, 
   Button, 
@@ -57,13 +57,11 @@ const Vacaciones: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [validationMessage, setValidationMessage] = useState<{ type: 'success' | 'error' | 'info'; message: string } | null>(null);
 
-  const API_URL = `${import.meta.env.VITE_API_DISTRI_API}`;
-  const areas = ['Sistemas', 'Administración', 'Depósito', 'Comercial', 'GerenciaOP', 'Contabilidad', 'Compras', 'TV', 'Gerencia','Aoki'];
+    const areas = ['Sistemas', 'Administración', 'Depósito', 'Comercial', 'GerenciaOP', 'Contabilidad', 'Compras', 'TV', 'Gerencia','Aoki'];
   const [empresaId, setEmpresaId] = useState<string>('');
   const obtenerHistorialVacaciones = useCallback(async (colaboradorID: string,empresaId:string) => {
     try {
-      const response = await axios.get<{ ok: number; data: Vacacion[] }>(`${API_URL}/vacaciones/historial/${colaboradorID}?limit=10`,
-        { headers: { 'x-empresa-id': empresaId } }
+      const response = await apiClient.get<{ ok: number; data: Vacacion[] }>(`/vacaciones/historial/${colaboradorID}?limit=10`
       );
       if (response.data.ok === 1 && Array.isArray(response.data.data)) {
         setHistorialVacaciones(response.data.data);
@@ -75,7 +73,7 @@ const Vacaciones: React.FC = () => {
       console.error('Error al obtener el historial de vacaciones:', error);
       setHistorialVacaciones([]);
     }
-  }, [API_URL]);
+  }, []);
 
   useEffect(() => {
     const user = ((localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')!) : null) as { user_code: string | null })?.user_code;
@@ -112,10 +110,7 @@ const Vacaciones: React.FC = () => {
     }
 
     try {
-      const response = await axios.post(`${API_URL}/vacaciones`, formData,
-        {
-          headers: { 'x-empresa-id': empresaId }
-        }
+      const response = await apiClient.post(`/vacaciones`, formData
       );
       if (response.status === 201) {
         console.log('Datos de la respuesta:', response.data); // Log de los datos de la respuesta

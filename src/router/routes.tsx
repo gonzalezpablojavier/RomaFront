@@ -1,9 +1,11 @@
 
 import PrivateRoute from './PrivateRoute';
+import PermissionRoute from './PermissionRoute';
 import Login from '../pages/Authentication/LoginBoxed';
 import Register from '../pages/Authentication/RegisterCover';
 
 import Error from '../components/Error';
+import Unauthorized from '../pages/Pages/Unauthorized';
 import Registro from '../pages/Apps/RegistroUsuario';
 import PanelFeedBack from '../pages/Apps/panelFeedback';
 import Home from '../pages/Apps/Home';
@@ -31,10 +33,10 @@ import TeamDetails from '../pages/Apps/TeamDetails';
 import MundialPage from '../pages/Mundial/MundialPage';
 
 import CompanyConfig from '../pages/Apps/CompanyConfig';
+import PanelPlataformaAdmin from '../pages/Apps/PanelPlataformaAdmin';
 import LoginCover from '../pages/Authentication/LoginCover';
-//import Index from '../pages/Index';
-
-
+import EmpresaPrivateRoute from './EmpresaPrivateRoute';
+import { Route } from '../config/permissions';
 
 const routes = [
   {
@@ -47,27 +49,50 @@ const routes = [
   },
   {
     path: '/CompanyConfig/:empresaId',
-    element: <CompanyConfig />,
+    element: (
+      <EmpresaPrivateRoute>
+        <CompanyConfig />
+      </EmpresaPrivateRoute>
+    ),
   },
-
   {
     path: '/auth/LoginCover',
     element: <LoginCover />,
   },
   {
-    path: '/Calendar',
-    element: <PrivateRoute><Calendar /></PrivateRoute>,
+    path: '/unauthorized',
+    element: <PrivateRoute><Unauthorized /></PrivateRoute>,
   },
-
+  {
+    path: '/Calendar',
+    element: (
+      <PrivateRoute>
+        <PermissionRoute route={Route.Calendario}>
+          <Calendar />
+        </PermissionRoute>
+      </PrivateRoute>
+    ),
+  },
   {
     path: '/CalendarAusentes',
-    element: <PrivateRoute><CalendarAusentes /></PrivateRoute>,
+    element: (
+      <PrivateRoute>
+        <PermissionRoute route={Route.AusentesCalendar}>
+          <CalendarAusentes />
+        </PermissionRoute>
+      </PrivateRoute>
+    ),
   },
   {
     path: '/PanelColaboradoresList',
-    element: <PrivateRoute><PanelColaboradoresList /></PrivateRoute>,
+    element: (
+      <PrivateRoute>
+        <PermissionRoute route={Route.PanelColaboradores}>
+          <PanelColaboradoresList />
+        </PermissionRoute>
+      </PrivateRoute>
+    ),
   },
-
   {
     path: '/',
     element: <PrivateRoute><Home /></PrivateRoute>,
@@ -102,7 +127,13 @@ const routes = [
   },
   {
     path: '/panelFeedback',
-    element: <PrivateRoute><PanelFeedBack /></PrivateRoute>,
+    element: (
+      <PrivateRoute>
+        <PermissionRoute route={Route.PanelFeedBack}>
+          <PanelFeedBack />
+        </PermissionRoute>
+      </PrivateRoute>
+    ),
   },
   {
     path: '/Vacaciones',
@@ -110,35 +141,83 @@ const routes = [
   },
   {
     path: '/panelAdminVacaciones',
-    element: <PrivateRoute><PanelAdminVacaciones /></PrivateRoute>,
+    element: (
+      <PrivateRoute>
+        <PermissionRoute route={Route.PanelAdminVacaciones}>
+          <PanelAdminVacaciones />
+        </PermissionRoute>
+      </PrivateRoute>
+    ),
   },
   {
     path: '/panelAdminIdeas',
-    element: <PrivateRoute><PanelAdminIdeas /></PrivateRoute>,
+    element: (
+      <PrivateRoute>
+        <PermissionRoute route={Route.PanelAdminIdeas}>
+          <PanelAdminIdeas />
+        </PermissionRoute>
+      </PrivateRoute>
+    ),
   },
   {
     path: '/panelPermisosTemporales',
-    element: <PrivateRoute><PanelPermisosTemporales /></PrivateRoute>,
+    element: (
+      <PrivateRoute>
+        <PermissionRoute route={Route.PanelPermisosTemporales}>
+          <PanelPermisosTemporales />
+        </PermissionRoute>
+      </PrivateRoute>
+    ),
   },
   {
     path: '/ManageMoods',
-    element: <PrivateRoute><ManageMoods /></PrivateRoute>,
+    element: (
+      <PrivateRoute>
+        <PermissionRoute route={Route.ManageMoods}>
+          <ManageMoods />
+        </PermissionRoute>
+      </PrivateRoute>
+    ),
   },
   {
     path: '/PanelPresentismo',
-    element: <PrivateRoute><PanelPresentismo /></PrivateRoute>,
+    element: (
+      <PrivateRoute>
+        <PermissionRoute route={Route.PanelPresentismo}>
+          <PanelPresentismo />
+        </PermissionRoute>
+      </PrivateRoute>
+    ),
   },
   {
     path: '/PanelCertificados',
-    element: <PrivateRoute><PanelCertificados /></PrivateRoute>,
+    element: (
+      <PrivateRoute>
+        <PermissionRoute route={Route.PanelCertificados}>
+          <PanelCertificados />
+        </PermissionRoute>
+      </PrivateRoute>
+    ),
   },
   {
     path: '/PanelDesempeno',
-    element: <PrivateRoute><PanelDesempeno /></PrivateRoute>,
+    element: (
+      <PrivateRoute>
+        <PermissionRoute route={Route.PanelDesempeno}>
+          <PanelDesempeno />
+        </PermissionRoute>
+      </PrivateRoute>
+    ),
   },
   {
     path: '/MiDesempeno',
-    element: <PrivateRoute><MiDesempeno /></PrivateRoute>,
+    element: (
+      <PrivateRoute>
+        <PermissionRoute route={Route.MiDesempeno}>
+          <MiDesempeno />
+        </PermissionRoute>
+      </PrivateRoute>
+    ),
   },
   {
     path: '/TeamDetails',
@@ -147,6 +226,16 @@ const routes = [
   {
     path: '/mundial',
     element: <PrivateRoute><MundialPage /></PrivateRoute>,
+  },
+  {
+    path: '/platform-admin',
+    element: (
+      <PrivateRoute>
+        <PermissionRoute route={Route.PlatformAdmin}>
+          <PanelPlataformaAdmin />
+        </PermissionRoute>
+      </PrivateRoute>
+    ),
   },
   {
     path: '/*',

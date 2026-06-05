@@ -1,5 +1,5 @@
 import React, { useMemo, useState, useEffect, useCallback } from 'react';
-import axios from 'axios';
+import { apiClient } from '../../api/apiClient';
 import { format, parseISO, addDays, isValid, startOfMonth, endOfMonth } from 'date-fns';
 import { getAreasForEmpresa, getManagerIdsForEmpresa, getManagerAreasForEmpresa } from '../../services/empresaService';
 
@@ -79,8 +79,7 @@ const AdminPermisosTemporal: React.FC = () => {
   const [managerAreas, setManagerAreas] = useState<{ [key: string]: string }>({});
   
   const estadosAutorizacion = ['Evaluando', 'Aprobado', 'Rechazado'];
-  const API_URL = `${import.meta.env.VITE_API_DISTRI_API}`;
-
+  
   const MAX_RETRIES = 3;
   const RETRY_DELAY = 5000; // 5 segundos
 
@@ -90,8 +89,8 @@ const AdminPermisosTemporal: React.FC = () => {
 
     try {
       const [permisosResponse, colaboradoresResponse] = await Promise.all([
-        axios.get(`${API_URL}/permiso-temporal`, {headers: { 'x-empresa-id': empresaId }}),
-        axios.get(`${API_URL}/usuarios-registrados`, {headers: { 'x-empresa-id': empresaId }})
+        apiClient.get(`/permiso-temporal`),
+        apiClient.get(`/usuarios-registrados`)
       ]);
 
       const sortedPermisos = permisosResponse.data.sort((a: Permiso, b: Permiso) => b.id - a.id);
@@ -126,7 +125,7 @@ const AdminPermisosTemporal: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  }, [API_URL,empresaId]);
+  }, [empresaId]);
 
 
   useEffect(() => {
@@ -202,7 +201,7 @@ const AdminPermisosTemporal: React.FC = () => {
 
   const handleApprove = async (id: number) => {
     try {
-      await axios.put(`${API_URL}/permiso-temporal/${id}`, { autorizado: 'Aprobado' },   { headers: { 'x-empresa-id': empresaId } });
+      await apiClient.put(`/permiso-temporal/${id}`, { autorizado: 'Aprobado' });
       fetchData();
     } catch (error) {
       setError('Error al aprobar el permiso');
@@ -212,7 +211,7 @@ const AdminPermisosTemporal: React.FC = () => {
 
   const handleReject = async (id: number) => {
     try {
-      await axios.put(`${API_URL}/permiso-temporal/${id}`, { autorizado: 'Rechazado' },   { headers: { 'x-empresa-id': empresaId } });
+      await apiClient.put(`/permiso-temporal/${id}`, { autorizado: 'Rechazado' });
       fetchData();
     } catch (error) {
       setError('Error al rechazar el permiso');
@@ -222,7 +221,7 @@ const AdminPermisosTemporal: React.FC = () => {
 
   const handleCancel = async (id: number) => {
     try {
-      await axios.put(`${API_URL}/permiso-temporal/${id}`, { autorizado: 'Evaluando' },   { headers: { 'x-empresa-id': empresaId } });
+      await apiClient.put(`/permiso-temporal/${id}`, { autorizado: 'Evaluando' });
       fetchData();
     } catch (error) {
       setError('Error al cancelar el permiso');

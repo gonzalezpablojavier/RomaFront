@@ -7,7 +7,8 @@ import store from './store';
 import { ToastContainer, toast } from 'react-toastify';
 import 'react-toastify/dist/ReactToastify.css';
 
-import { messaging, requestNotificationPermission, messageEmitter } from './config/firebase';
+import { requestNotificationPermission, messageEmitter } from './config/firebase';
+import { isFirebaseEnabled } from './config/env';
 import useMediaQuery from './hooks/useMediaQuery';
 import { ChatWidget } from './components/ChatWidget';
 import { usePWAUpdate } from './hooks/usePWAUpdate';
@@ -25,17 +26,18 @@ function App({ children }: PropsWithChildren) {
 
      // Request permission and listen for messages
      useEffect(() => {
+        if (!isFirebaseEnabled()) {
+            return;
+        }
+
         const setupNotificationListener = async () => {
             const token = await requestNotificationPermission();
             if (token) {
                 console.log('Notification permission granted, token:', token);
-            } else {
-                console.log('Notification permission denied');
             }
         };
         setupNotificationListener();
 
-            // Listen to EventEmitter notifications
             const onNotification = (payload: any) => {
                 console.log("Foreground message received in App component:", payload); // Debugging
                 setNotification({

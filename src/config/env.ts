@@ -51,6 +51,30 @@ export function getQrHomeUrl(): string {
   return requireEnv('VITE_QR_HOME_URL');
 }
 
+export function isFirebaseEnabled(): boolean {
+  const flag = envOr('VITE_FIREBASE_ENABLED', '').toLowerCase();
+  if (flag === 'false' || flag === '0' || flag === 'no') {
+    return false;
+  }
+  if (flag === 'true' || flag === '1' || flag === 'yes') {
+    return true;
+  }
+
+  const apiKey = String(import.meta.env.VITE_FIREBASE_API_KEY ?? '').trim();
+  const vapidKey = String(import.meta.env.VITE_FIREBASE_VAPID_KEY ?? '').trim();
+  if (!apiKey || !vapidKey) {
+    return false;
+  }
+  if (
+    apiKey.toLowerCase().includes('dummy') ||
+    vapidKey === 'placeholder'
+  ) {
+    return false;
+  }
+
+  return true;
+}
+
 export function getFirebaseConfig() {
   return {
     apiKey: requireEnv('VITE_FIREBASE_API_KEY'),

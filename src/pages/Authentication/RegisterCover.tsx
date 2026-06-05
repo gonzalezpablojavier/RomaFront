@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useDispatch } from 'react-redux';
 import { Link, useNavigate } from 'react-router-dom';
 import { setPageTitle } from '../../store/themeConfigSlice';
-import { createEmpresa } from '../../config/api_empresa'; // Asumimos que esta función está en api_empresa.ts
+import { createEmpresa, loginEmpresa } from '../../config/api_empresa';
 
 
 
@@ -39,7 +39,7 @@ const RegisterCover = () => {
 
         try {
             const createdEmpresa = await createEmpresa(formData);
-            // Navegar a la página de configuración de la empresa recién creada
+            await loginEmpresa({ email: formData.user, password: formData.pass });
             navigate(`/CompanyConfig/${createdEmpresa.id}`);
         } catch (err) {
             setError(err.message || 'Error al registrar la empresa');

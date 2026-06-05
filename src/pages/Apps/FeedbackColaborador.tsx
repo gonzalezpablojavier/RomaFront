@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import axios from 'axios';
+import { apiClient, isAxiosError } from '../../api/apiClient';
 
-const API_URL = `${import.meta.env.VITE_API_DISTRI_API}`;
 const normas = [
   { id: 1, descripcion: 'Nos orientamos al cliente' },
   { id: 2, descripcion: 'Comunicamos(preguntamos)' },
@@ -101,9 +100,7 @@ const FeedbackColaborador: React.FC = () => {
 
   const fetchFeedbackEnviado = async (colaboradorID: number, empresaId: string) => {
     try {
-      const response = await axios.get(`${API_URL}/feedback/enviado/${colaboradorID}`, {
-        headers: { 'x-empresa-id': empresaId }
-      });
+      const response = await apiClient.get(`/feedback/enviado/${colaboradorID}`);
       if (response.data.ok === 1) {
         setFeedbackEnviado(response.data.data);
       } else {
@@ -117,9 +114,7 @@ const FeedbackColaborador: React.FC = () => {
 
   const fetchColaboradores = async (empresaId:string) => {
     try {
-      const response = await axios.get<{ ok: number; data: Colaborador[] }>(`${API_URL}/usuarios-registrados`,{
-        headers: { 'x-empresa-id': empresaId }
-      });
+      const response = await apiClient.get<{ ok: number; data: Colaborador[] }>(`/usuarios-registrados`);
       if (response.data.ok === 1 && Array.isArray(response.data.data)) {
         setColaboradores(response.data.data);
       } else {
@@ -134,8 +129,7 @@ const FeedbackColaborador: React.FC = () => {
 
   const fetchFelicitacionesDisponibles = async (colaboradorID: number,empresaId:string) => {
     try {
-      const response = await axios.get(`${API_URL}/feedback/felicitaciones-disponibles/${colaboradorID}`,
-        {   headers: { 'x-empresa-id': empresaId }}
+      const response = await apiClient.get(`/feedback/felicitaciones-disponibles/${colaboradorID}`
       );
       if (response.data.ok === 1) {
         setFelicitacionesDisponibles(response.data.data.disponibles);
@@ -208,9 +202,7 @@ const FeedbackColaborador: React.FC = () => {
         empresaId : empresaId,
         motivo: motivo
       };
-      const response = await axios.post(`${API_URL}/feedback`, feedbackData,{
-        headers: { 'x-empresa-id': empresaId }
-      });
+      const response = await apiClient.post(`/feedback`, feedbackData);
       setMensaje(`Enviado exitosamente`);
       // Actualizar felicitaciones disponibles si fue una felicitación
       if ((tipo === 'revision'||tipo === 'felicitacion') && felicitacionesDisponibles !== null) {
@@ -231,7 +223,7 @@ const FeedbackColaborador: React.FC = () => {
       setMotivo('');
     } catch (error) {
       setIsError(true);
-      if (axios.isAxiosError(error)) {
+      if (isAxiosError(error)) {
         setMensaje(`Error al enviar feedback: ${error.response?.data?.message || error.message}`);
       } else {
         setMensaje('Error desconocido al enviar feedback');
