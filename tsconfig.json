@@ -1,0 +1,26 @@
+{
+    "compilerOptions": {
+        "target": "es5",
+        "outDir": "./dist",  // Directorio de salida para los archivos compilados
+        "rootDir": "./src",  // Directorio raíz de tus archivos fuente    
+        "useDefineForClassFields": true,
+        "lib": ["DOM", "DOM.Iterable", "ESNext"],
+        "allowJs": false,
+        "types": ["date-fns"],
+        "skipLibCheck": true,
+        "esModuleInterop": true,
+        "allowSyntheticDefaultImports": true,
+        "strict": true,
+        "forceConsistentCasingInFileNames": true,
+        "module": "ESNext",
+        "moduleResolution": "Node",
+        "resolveJsonModule": true,
+        "isolatedModules": false,
+        "noEmit": false,
+        "jsx": "react-jsx",
+        "useUnknownInCatchVariables": false    // hasta que solucionen bug de react-dropzone-uploader
+    },
+    "include": ["src"],
+    "exclude": ["node_modules", "dist"],  // Excluye node_modules y el directorio de
+    "references": [{ "path": "./tsconfig.node.json" }]
+}
