@@ -5,7 +5,7 @@ import { es } from 'date-fns/locale';
 import { formatKickoffArgentina, argentinaDateKey } from '../../utils/mundialTime';
 import { ChevronLeft } from 'lucide-react';
 import {
-  fetchMundialAdminAccess,
+  fetchMundialAccess,
   fetchMundialMatches,
   fetchMundialRounds,
   fetchMyPredictions,
@@ -30,11 +30,12 @@ import TriviaRoundFlow from '../../components/Mundial/TriviaRoundFlow';
 import RankingTable from '../../components/Mundial/RankingTable';
 import TeamFlag from '../../components/Mundial/TeamFlag';
 import MundialAdminPanel from '../../components/Mundial/MundialAdminPanel';
+import MundialResultsPanel from '../../components/Mundial/MundialResultsPanel';
 import { ensureFreshAccessToken } from '../../api/api_auth';
 import { useAuth } from '../../context/AuthContext';
-import axios from 'axios';
+import { isAxiosError } from '../../api/apiClient';
 
-type TabId = 'fixture' | 'predictions' | 'ranking' | 'admin';
+type TabId = 'fixture' | 'predictions' | 'ranking' | 'results' | 'admin';
 
 const MundialPage: React.FC = () => {
   const navigate = useNavigate();
@@ -60,7 +61,8 @@ const MundialPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [triviaPhase, setTriviaPhase] = useState<MundialPhase | null>(null);
   const [activeRoundId, setActiveRoundId] = useState<number | null>(null);
-  const [canAdmin, setCanAdmin] = useState(false);
+  const [canManageFixture, setCanManageFixture] = useState(false);
+  const [canLoadResults, setCanLoadResults] = useState(false);
 
   const loadFixture = useCallback(async (roundId?: number) => {
     const r = await fetchMundialRounds();
@@ -93,8 +95,13 @@ const MundialPage: React.FC = () => {
         navigate('/auth/login', { state: { from: location }, replace: true });
         return;
       }
-      const admin = await fetchMundialAdminAccess().catch(() => ({ canAccess: false }));
-      setCanAdmin(admin.canAccess);
+      const access = await fetchMundialAccess().catch(() => ({
+        canManageFixture: false,
+        canLoadResults: false,
+        canAccess: false,
+      }));
+      setCanManageFixture(access.canManageFixture);
+      setCanLoadResults(access.canLoadResults);
       if (tab === 'fixture') await loadFixture();
       if (tab === 'predictions') {
         const p = await fetchMyPredictions();
@@ -104,12 +111,15 @@ const MundialPage: React.FC = () => {
         const rank = await fetchRanking();
         setRankingData(rank);
       }
-      if (tab === 'admin' && !admin.canAccess) {
+      if (tab === 'admin' && !access.canManageFixture) {
+        setTab('fixture');
+      }
+      if (tab === 'results' && !access.canLoadResults) {
         setTab('fixture');
       }
     } catch (e) {
       console.error(e);
-      if (axios.isAxiosError(e) && e.response?.status === 401) {
+      if (isAxiosError(e) && e.response?.status === 401) {
         logout();
         navigate('/auth/login', { state: { from: location }, replace: true });
       }
@@ -187,7 +197,10 @@ const MundialPage: React.FC = () => {
               ['fixture', 'Fixture'],
               ['predictions', 'Mis predicciones'],
               ['ranking', 'Ranking'],
-              ...(canAdmin ? [['admin', 'Administración'] as const] : []),
+              ...(canLoadResults && !canManageFixture
+                ? [['results', 'Resultados'] as const]
+                : []),
+              ...(canManageFixture ? [['admin', 'Administración'] as const] : []),
             ] as const
           ).map(([id, label]) => (
             <button
@@ -319,7 +332,11 @@ const MundialPage: React.FC = () => {
               />
             )}
 
-            {tab === 'admin' && canAdmin && <MundialAdminPanel />}
+            {tab === 'results' && canLoadResults && !canManageFixture && (
+              <MundialResultsPanel />
+            )}
+
+            {tab === 'admin' && canManageFixture && <MundialAdminPanel />}
           </>
         )}
       </div>

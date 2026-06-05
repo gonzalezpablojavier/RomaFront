@@ -1,6 +1,4 @@
-import axios from 'axios';
-
-const API_URL = `${import.meta.env.VITE_API_DISTRI_API}`;
+import { apiClient } from './apiClient';
 
 export type TriviaCategory = 'cultura' | 'habitos' | 'pilares';
 
@@ -57,21 +55,13 @@ export interface TriviaSubmitResult {
   }>;
 }
 
-function headers() {
-  const empresaId = localStorage.getItem('l_empresa_id');
-  return empresaId ? { 'x-empresa-id': empresaId } : {};
-}
-
 export async function fetchMundialRounds() {
-  const { data } = await axios.get<MundialRound[]>(`${API_URL}/mundial/rounds`, {
-    headers: headers(),
-  });
+  const { data } = await apiClient.get<MundialRound[]>('/mundial/rounds');
   return data;
 }
 
 export async function fetchMundialMatches(roundId?: number) {
-  const { data } = await axios.get<MundialMatch[]>(`${API_URL}/mundial/matches`, {
-    headers: headers(),
+  const { data } = await apiClient.get<MundialMatch[]>('/mundial/matches', {
     params: roundId ? { roundId } : undefined,
   });
   return data;
@@ -88,19 +78,18 @@ export const MUNDIAL_PHASE_LABELS: Record<MundialPhase, string> = {
 };
 
 export async function fetchTriviaStatus(phase: MundialPhase) {
-  const { data } = await axios.get<{ completed: boolean; correctCount: number }>(
-    `${API_URL}/mundial/phases/${phase}/trivia/status`,
-    { headers: headers() },
+  const { data } = await apiClient.get<{ completed: boolean; correctCount: number }>(
+    `/mundial/phases/${phase}/trivia/status`,
   );
   return data;
 }
 
 export async function fetchTrivia(phase: MundialPhase) {
-  const { data } = await axios.get<{
+  const { data } = await apiClient.get<{
     phase: MundialPhase;
     phaseLabel: string;
     questions: TriviaQuestion[];
-  }>(`${API_URL}/mundial/phases/${phase}/trivia`, { headers: headers() });
+  }>(`/mundial/phases/${phase}/trivia`);
   return data;
 }
 
@@ -108,32 +97,29 @@ export async function submitTrivia(
   phase: MundialPhase,
   answers: { questionId: number; optionId: number }[],
 ) {
-  const { data } = await axios.post<TriviaSubmitResult>(
-    `${API_URL}/mundial/phases/${phase}/trivia`,
+  const { data } = await apiClient.post<TriviaSubmitResult>(
+    `/mundial/phases/${phase}/trivia`,
     { answers },
-    { headers: headers() },
   );
   return data;
 }
 
 export async function savePrediction(matchId: number, homeScore: number, awayScore: number) {
-  const { data } = await axios.post(`${API_URL}/mundial/predictions`, {
+  const { data } = await apiClient.post('/mundial/predictions', {
     matchId,
     homeScore,
     awayScore,
-  }, { headers: headers() });
-  return data;
-}
-
-export async function fetchMyPredictions() {
-  const { data } = await axios.get(`${API_URL}/mundial/predictions/me`, {
-    headers: headers(),
   });
   return data;
 }
 
+export async function fetchMyPredictions() {
+  const { data } = await apiClient.get('/mundial/predictions/me');
+  return data;
+}
+
 export async function fetchRanking() {
-  const { data } = await axios.get<{
+  const { data } = await apiClient.get<{
     myPosition: number | null;
     myPoints: number;
     totalPlayers: number;
@@ -144,7 +130,7 @@ export async function fetchRanking() {
       totalPoints: number;
       isMe: boolean;
     }>;
-  }>(`${API_URL}/mundial/ranking`, { headers: headers() });
+  }>('/mundial/ranking');
   return data;
 }
 
@@ -153,15 +139,29 @@ export async function updateMatchResult(
   homeScore: number,
   awayScore: number,
 ) {
-  const { data } = await axios.patch(
-    `${API_URL}/mundial/matches/${matchId}/result`,
+  const { data } = await apiClient.patch<{
+    ok: number;
+    predictionsUpdated?: number;
+  }>(
+    `/mundial/matches/${matchId}/result`,
     { homeScore, awayScore, status: 'finished' },
-    { headers: headers() },
   );
   return data;
 }
 
-// --- Admin (solo colaboradorID = 1 en backend) ---
+export interface MundialAccess {
+  canManageFixture: boolean;
+  canLoadResults: boolean;
+  /** Alias legacy de canManageFixture */
+  canAccess: boolean;
+}
+
+export async function fetchMundialAccess() {
+  const { data } = await apiClient.get<MundialAccess>('/mundial/access');
+  return data;
+}
+
+// --- Admin fixture (solo colaboradorID = 1 en backend) ---
 
 export type MundialPhase =
   | 'groups'
@@ -208,18 +208,11 @@ export interface MundialTeamsResponse {
 }
 
 export async function fetchMundialAdminAccess() {
-  const { data } = await axios.get<{ canAccess: boolean }>(
-    `${API_URL}/mundial/admin/access`,
-    { headers: headers() },
-  );
-  return data;
+  return fetchMundialAccess();
 }
 
 export async function fetchMundialAdminTeams() {
-  const { data } = await axios.get<MundialTeamsResponse>(
-    `${API_URL}/mundial/admin/teams`,
-    { headers: headers() },
-  );
+  const { data } = await apiClient.get<MundialTeamsResponse>('/mundial/admin/teams');
   return data;
 }
 
@@ -227,17 +220,12 @@ export async function adminUpdateTeam(
   code: string,
   body: Partial<Pick<MundialTeam, 'name' | 'groupLetter'>> & { isHost?: boolean },
 ) {
-  const { data } = await axios.patch(`${API_URL}/mundial/admin/teams/${code}`, body, {
-    headers: headers(),
-  });
+  const { data } = await apiClient.patch(`/mundial/admin/teams/${code}`, body);
   return data;
 }
 
 export async function fetchMundialAdminRounds() {
-  const { data } = await axios.get<MundialAdminRound[]>(
-    `${API_URL}/mundial/admin/rounds`,
-    { headers: headers() },
-  );
+  const { data } = await apiClient.get<MundialAdminRound[]>('/mundial/admin/rounds');
   return data;
 }
 
@@ -250,9 +238,7 @@ export async function adminCreateRound(body: {
   sortOrder?: number;
   isActive?: boolean;
 }) {
-  const { data } = await axios.post(`${API_URL}/mundial/admin/rounds`, body, {
-    headers: headers(),
-  });
+  const { data } = await apiClient.post('/mundial/admin/rounds', body);
   return data;
 }
 
@@ -268,9 +254,7 @@ export async function adminUpdateRound(
     isActive: boolean;
   }>,
 ) {
-  const { data } = await axios.patch(`${API_URL}/mundial/admin/rounds/${id}`, body, {
-    headers: headers(),
-  });
+  const { data } = await apiClient.patch(`/mundial/admin/rounds/${id}`, body);
   return data;
 }
 
@@ -279,10 +263,7 @@ export async function fetchMundialAdminMatches(params?: {
   phase?: string;
   groupLetter?: string;
 }) {
-  const { data } = await axios.get<MundialAdminMatch[]>(
-    `${API_URL}/mundial/admin/matches`,
-    { headers: headers(), params },
-  );
+  const { data } = await apiClient.get<MundialAdminMatch[]>('/mundial/admin/matches', { params });
   return data;
 }
 
@@ -295,9 +276,7 @@ export async function adminCreateMatch(body: {
   kickoffAt: string;
   venue?: string;
 }) {
-  const { data } = await axios.post(`${API_URL}/mundial/admin/matches`, body, {
-    headers: headers(),
-  });
+  const { data } = await apiClient.post('/mundial/admin/matches', body);
   return data;
 }
 
@@ -314,9 +293,7 @@ export async function adminUpdateMatch(
     status: string;
   }>,
 ) {
-  const { data } = await axios.patch(`${API_URL}/mundial/admin/matches/${id}`, body, {
-    headers: headers(),
-  });
+  const { data } = await apiClient.patch(`/mundial/admin/matches/${id}`, body);
   return data;
 }
 
@@ -326,11 +303,9 @@ export async function adminUpdateMatchResult(
   awayScore: number,
   status: 'scheduled' | 'live' | 'finished' = 'finished',
 ) {
-  const { data } = await axios.patch(
-    `${API_URL}/mundial/admin/matches/${matchId}/result`,
+  const { data } = await apiClient.patch(
+    `/mundial/admin/matches/${matchId}/result`,
     { homeScore, awayScore, status },
-    { headers: headers() },
   );
   return data;
 }
-
