@@ -111,21 +111,20 @@ const Vacaciones: React.FC = () => {
     }
 
     try {
-      const response = await apiClient.post(`/vacaciones`, formData
-      );
+      const response = await apiClient.post(`/vacaciones`, formData);
       if (response.status === 201) {
         console.log('Datos de la respuesta:', response.data); // Log de los datos de la respuesta
-  
-      
+        setError(null);
         setValidationMessage({ type: 'success', message: 'Solicitud enviada con éxito.' });
         obtenerHistorialVacaciones(formData.colaboradorID,empresaId);
         setFormData({ ...formData, fechaPermisoDesde: '', fechaPermisoHasta: '', colaboradorCubre: '' });
       } else {
         setError('Error al enviar la solicitud');
       }
-    } catch (error) {
-      setError('Error al enviar la solicitud');
-      console.error(error);
+    } catch (err: any) {
+      const backendMessage = err?.response?.data?.message || 'Error al enviar la solicitud';
+      setError(backendMessage);
+      console.error(err);
     }
   };
 

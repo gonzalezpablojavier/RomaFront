@@ -137,8 +137,8 @@ const PanelPlataformaAdmin: React.FC = () => {
     setCatalog(data);
     setColabForm((f) => ({
       ...f,
-      area: f.area || data.areas[0]?.name || '',
-      sucursal: f.sucursal || data.sucursales[0]?.code || '',
+      area: data.areas[0]?.name || '',
+      sucursal: data.sucursales[0]?.code || '',
     }));
   }, []);
 

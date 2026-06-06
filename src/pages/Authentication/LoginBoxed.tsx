@@ -186,14 +186,6 @@ const LoginBoxed = () => {
               </button>
 
               <p className="text-center">
-                <Link
-                  to="/auth/LoginCover"
-                  className="font-bold text-primary hover:underline ltr:ml-1 rtl:mr-1"
-                >
-                  Ingresar a Roma enterprise.
-                </Link>
-              </p>
-              <p className="text-center">
                 ¿Primera vez en Roma?
                 <Link
                   to="/auth/register"

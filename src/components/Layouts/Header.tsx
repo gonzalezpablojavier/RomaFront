@@ -6,8 +6,8 @@ import { toggleSidebar } from '../../store/themeConfigSlice';
 import Dropdown from '../Dropdown';
 import lw from '/assets/images/logo-head.png';
 import lb from '/assets/images/logo-foot.png';
-import { apiClient } from '../../api/apiClient';
-import { getDefaultUserPhotoUrl } from '../../config/env';
+import { apiClient, getApiBaseUrl } from '../../api/apiClient';
+import { getDefaultUserPhotoUrl, getImageDomain } from '../../config/env';
 import {
   getSessionEmpresaId,
   getSessionUserId,
@@ -39,9 +39,25 @@ function formatTimeAgo(iso: string): string {
   const days = Math.floor(hours / 24);
   return `hace ${days} día${days === 1 ? '' : 's'}`;
 }
+
+const resolvePhotoUrl = (foto: string | null | undefined): string => {
+  const f = (foto || '').trim();
+  if (!f || f === 'null') {
+    return getDefaultUserPhotoUrl();
+  }
+  if (f.startsWith('http')) {
+    return f;
+  }
+  if (f.includes('user-4250.png')) {
+    return getDefaultUserPhotoUrl();
+  }
+  const normalized = f.startsWith('/') ? f : `/${f}`;
+  return `${getImageDomain()}${normalized}`;
+};
+
 const Header = () => {
-  const [colaboradorID, setColaboradorID] = useState<string | null>(null);
-  const [empresaID, setEmpresaID] = useState<string | null>(null);
+  const [colaboradorID, setColaboradorID] = useState<string | null>(getSessionUserId());
+  const [empresaID, setEmpresaID] = useState<string | null>(getSessionEmpresaId());
   const [profile, setProfile] = useState<any>(null);
   const [notifications, setNotifications] = useState<InboxNotification[]>([]);
 
@@ -461,13 +477,13 @@ const Header = () => {
                                 <div className="w-12 h-12 relative">
                                   {profile ? (
                                     <img
-                                      src={notification.photo || getDefaultUserPhotoUrl()}
+                                      src={resolvePhotoUrl(notification.photo)}
                                       alt="Foto de perfil"
                                       className="rounded-md w-6 h-6 object-cover"
                                     />
                                   ) : (
                                     <img
-                                      src={getDefaultUserPhotoUrl()}
+                                      src={resolvePhotoUrl(null)}
                                       alt="Foto de perfil"
                                       className="rounded-md w-6 h-6 object-cover"
                                     />
@@ -549,13 +565,13 @@ const Header = () => {
 
                     {profile ? (
                       <img
-                        src={profile.foto || getDefaultUserPhotoUrl()}
+                        src={resolvePhotoUrl(profile.foto)}
                         alt="Foto de perfil"
                         className="rounded-md w-6 h-6 object-cover"
                       />
                     ) : (
                       <img
-                        src={getDefaultUserPhotoUrl()}
+                        src={resolvePhotoUrl(null)}
                         alt="Foto de perfil"
                         className="rounded-md w-6 h-6 object-cover"
                       />
@@ -574,7 +590,7 @@ const Header = () => {
                     <li>
                       <div className="flex items-center px-4 py-4">
                         <img
-                          src={profile.foto || getDefaultUserPhotoUrl()}
+                          src={resolvePhotoUrl(profile.foto)}
                           alt={profile.foto ? "Foto de perfil" : "Foto por defecto"}
                           className="rounded-md w-10 h-10 object-cover"
                         />

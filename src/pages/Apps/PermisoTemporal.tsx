@@ -166,9 +166,10 @@ const PermisoTemporal: React.FC = () => {
       } else {
         setError('Error al enviar la solicitud');
       }
-    } catch (error) {
-      setError('Error al enviar la solicitud');
-      console.error(error);
+    } catch (err: any) {
+      const backendMessage = err?.response?.data?.message || 'Error al enviar la solicitud';
+      setError(backendMessage);
+      console.error(err);
     }
   };
 

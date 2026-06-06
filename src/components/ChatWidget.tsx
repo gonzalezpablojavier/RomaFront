@@ -5,6 +5,16 @@ import { ChatMessage } from './ChatMessage';
 import { getSessionEmpresaId, getSessionUserId, getSessionUser } from '../session/sessionStore';
 
 export const ChatWidget: React.FC = () => {
+  const [isOpen, setIsOpen] = useState(false);
+  const [inputMessage, setInputMessage] = useState('');
+  
+  const { messages, isLoading, typingMessage, sendMessage, clearChat, messagesEndRef } = useChat({
+    autoScroll: true,
+    onError: (error) => {
+      console.error('Chat error:', error);
+    },
+  });
+
   // Verificar si el usuario puede ver el chat (solo colaboradorID 1, 8, 9)
   const canUseChat = (): boolean => {
     try {
@@ -21,15 +31,6 @@ export const ChatWidget: React.FC = () => {
   if (!canUseChat()) {
     return null;
   }
-  const [isOpen, setIsOpen] = useState(false);
-  const [inputMessage, setInputMessage] = useState('');
-  
-  const { messages, isLoading, typingMessage, sendMessage, clearChat, messagesEndRef } = useChat({
-    autoScroll: true,
-    onError: (error) => {
-      console.error('Chat error:', error);
-    },
-  });
 
   const handleSend = async () => {
     if (!inputMessage.trim() || isLoading) return;
