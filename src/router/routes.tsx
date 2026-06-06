@@ -34,6 +34,7 @@ import MundialPage from '../pages/Mundial/MundialPage';
 
 import CompanyConfig from '../pages/Apps/CompanyConfig';
 import PanelPlataformaAdmin from '../pages/Apps/PanelPlataformaAdmin';
+import TenantAdminPanel from '../pages/Apps/TenantAdminPanel';
 import LoginCover from '../pages/Authentication/LoginCover';
 import EmpresaPrivateRoute from './EmpresaPrivateRoute';
 import { Route } from '../config/permissions';
@@ -233,6 +234,16 @@ const routes = [
       <PrivateRoute>
         <PermissionRoute route={Route.PlatformAdmin}>
           <PanelPlataformaAdmin />
+        </PermissionRoute>
+      </PrivateRoute>
+    ),
+  },
+  {
+    path: '/tenant-admin',
+    element: (
+      <PrivateRoute>
+        <PermissionRoute route={Route.TenantAdmin}>
+          <TenantAdminPanel />
         </PermissionRoute>
       </PrivateRoute>
     ),

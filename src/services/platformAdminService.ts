@@ -48,6 +48,7 @@ export interface UpdateTenantConfigPayload {
   miDesempenoHomeTile?: boolean;
   commercialGeoCheckIn?: boolean;
   mfaRequired?: boolean;
+  internalNotes?: string;
 }
 
 export interface CreateColaboradorPayload {
@@ -71,6 +72,29 @@ export interface CreateColaboradorResult {
   roleCode: string;
   whatsAppSent: boolean;
   whatsAppError: string | null;
+}
+
+export interface PlatformGlobalUser {
+  tenantId: string;
+  tenantDisplayName: string;
+  colaboradorId: number;
+  nombreUsuario: string;
+  nombre: string;
+  apellido: string;
+  email: string;
+  sucursal: string;
+  area: string;
+  primaryRoleCode: string | null;
+  primaryRoleName: string | null;
+  isPlatformAdmin: boolean;
+  roleCodes: string[];
+}
+
+export interface ResetPasswordResult {
+  tenantId: string;
+  colaboradorId: number;
+  nombreUsuario: string;
+  temporaryPassword: string;
 }
 
 export const platformAdminService = {
@@ -136,6 +160,53 @@ export const platformAdminService = {
     const { data } = await apiClient.post<{ sent: boolean; telefono: string }>(
       `/platform/tenants/${tenantId}/colaboradores/${colaboradorId}/send-credentials`,
       password ? { password } : {},
+    );
+    return data;
+  },
+
+  listGlobalUsers: async () => {
+    const { data } = await apiClient.get<PlatformGlobalUser[]>('/platform/users');
+    return data;
+  },
+
+  setPlatformAdmin: async (
+    tenantId: string,
+    colaboradorId: number,
+    isPlatformAdmin: boolean,
+  ) => {
+    const { data } = await apiClient.patch<{ isPlatformAdmin: boolean }>(
+      `/platform/users/${tenantId}/${colaboradorId}/platform-admin`,
+      { isPlatformAdmin },
+    );
+    return data;
+  },
+
+  resetUserPassword: async (
+    tenantId: string,
+    colaboradorId: number,
+    password?: string,
+  ) => {
+    const { data } = await apiClient.post<ResetPasswordResult>(
+      `/platform/users/${tenantId}/${colaboradorId}/reset-password`,
+      password ? { password } : {},
+    );
+    return data;
+  },
+
+  updateGlobalUser: async (
+    tenantId: string,
+    colaboradorId: number,
+    payload: {
+      nombre?: string;
+      apellido?: string;
+      email?: string;
+      roleCode?: string;
+      isPlatformAdmin?: boolean;
+    },
+  ) => {
+    const { data } = await apiClient.patch<PlatformGlobalUser>(
+      `/platform/users/${tenantId}/${colaboradorId}`,
+      payload,
     );
     return data;
   },

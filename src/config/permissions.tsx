@@ -27,6 +27,7 @@ export enum Route {
   Calendario = '/Calendar',
   AusentesCalendar = '/CalendarAusentes',
   PlatformAdmin = '/platform-admin',
+  TenantAdmin = '/tenant-admin',
 }
 
 /** Mapeo ruta → permiso atómico definido en el backend (tenant_role_permission). */
@@ -56,6 +57,7 @@ export const ROUTE_PERMISSION_CODE: Record<Route, string | null> = {
   [Route.Certificados]: 'route.certificados',
   [Route.MisDatos]: 'route.mis_datos',
   [Route.PlatformAdmin]: 'platform.admin',
+  [Route.TenantAdmin]: 'tenant.admin',
 };
 
 export const hasPermission = (

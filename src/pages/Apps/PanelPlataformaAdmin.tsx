@@ -1,27 +1,54 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  ArrowLeft,
+  Building2,
+  CheckCircle2,
+  LayoutDashboard,
+  Shield,
+  Users,
+  UserCog,
+  MapPin,
+  GitBranch,
+} from 'lucide-react';
 import {
   platformAdminService,
   type CreateColaboradorResult,
+  type PlatformGlobalUser,
   type PlatformTenant,
   type TenantDetail,
 } from '../../services/platformAdminService';
 import { TenantCatalog } from '../../types/tenantRbac';
 import { clearTenantConfigCache } from '../../services/tenantConfigService';
+import { PlatformAdminShell } from '../../components/platform-admin/PlatformAdminShell';
+import { PlatformStatCard } from '../../components/platform-admin/PlatformStatCard';
+import {
+  PlatformTenantList,
+  type TenantSummary,
+} from '../../components/platform-admin/PlatformTenantList';
+import { PlatformUserList } from '../../components/platform-admin/PlatformUserList';
+import { EditPlatformUserDialog } from '../../components/platform-admin/EditPlatformUserDialog';
+import { TenantControlConsole } from '../../components/platform-admin/TenantControlConsole';
+import { ROMA_ROLE_OPTIONS, roleLabel } from '../../components/platform-admin/rbacLabels';
 import TenantOnboardingWizard, {
   type WizardFormState,
   type WizardSubmitResult,
 } from './TenantOnboardingWizard';
 
-type TabId = 'resumen' | 'config' | 'colaboradores' | 'nuevo';
+type MainTab =
+  | 'dashboard'
+  | 'empresas'
+  | 'usuarios'
+  | 'onboarding'
+  | 'nuevo-colaborador';
 
-const ROLE_OPTIONS = [
-  { value: 'colaborador', label: 'Colaborador' },
-  { value: 'manager', label: 'Manager' },
-  { value: 'manager_high', label: 'Manager alto' },
-  { value: 'manager_low', label: 'Manager bajo' },
-  { value: 'desempeno_viewer', label: 'Desempeño' },
-  { value: 'depo_sucursal_leader', label: 'Líder depósito' },
-  { value: 'platform_admin', label: 'Admin plataforma' },
+const MAIN_TABS: {
+  id: MainTab;
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+}[] = [
+  { id: 'dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { id: 'empresas', label: 'Empresas', icon: Building2 },
+  { id: 'usuarios', label: 'Usuarios', icon: Users },
 ];
 
 function Alert({
@@ -36,41 +63,24 @@ function Alert({
       ? 'border-red-200 bg-red-50 text-red-800'
       : 'border-green-200 bg-green-50 text-green-800';
   return (
-    <div className={`mb-4 rounded-lg border px-4 py-3 text-sm ${styles}`}>
-      {children}
-    </div>
-  );
-}
-
-function StatCard({ label, value }: { label: string; value: number | string }) {
-  return (
-    <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-      <div className="text-2xl font-bold text-slate-900">{value}</div>
-      <div className="text-xs text-slate-500">{label}</div>
-    </div>
+    <div className={`rounded-lg border px-4 py-3 text-sm ${styles}`}>{children}</div>
   );
 }
 
 const PanelPlataformaAdmin: React.FC = () => {
-  const [tab, setTab] = useState<TabId>('resumen');
+  const [tab, setTab] = useState<MainTab>('empresas');
   const [tenants, setTenants] = useState<PlatformTenant[]>([]);
   const [selectedTenant, setSelectedTenant] = useState('default');
   const [detail, setDetail] = useState<TenantDetail | null>(null);
   const [catalog, setCatalog] = useState<TenantCatalog | null>(null);
+  const [summaries, setSummaries] = useState<Record<string, TenantSummary>>({});
+  const [globalUsers, setGlobalUsers] = useState<PlatformGlobalUser[]>([]);
+  const [editingUser, setEditingUser] = useState<PlatformGlobalUser | null>(null);
+  const [consoleTenantId, setConsoleTenantId] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [userActionLoading, setUserActionLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
-
-  const [configForm, setConfigForm] = useState({
-    displayName: '',
-    logoUrl: '/assets/images/roma.jpeg',
-    accentColor: '#FDD05B',
-    areasText: '',
-    mundialHome: false,
-    miDesempenoHomeTile: true,
-    commercialGeoCheckIn: false,
-    mfaRequired: false,
-  });
 
   const [colabForm, setColabForm] = useState({
     nombreUsuario: '',
@@ -86,29 +96,39 @@ const PanelPlataformaAdmin: React.FC = () => {
   });
   const [lastCreated, setLastCreated] = useState<CreateColaboradorResult | null>(null);
 
+  const loadSummaries = useCallback(async (list: PlatformTenant[]) => {
+    if (!list.length) {
+      setSummaries({});
+      return;
+    }
+    const details = await Promise.all(
+      list.map((t) => platformAdminService.getTenantDetail(t.id)),
+    );
+    const map: Record<string, TenantSummary> = {};
+    for (const d of details) {
+      map[d.id] = {
+        colaboradores: d.stats.colaboradores,
+        roleAssignments: d.stats.roleAssignments,
+        mfaRequired: d.config.security?.mfaRequired === true,
+      };
+    }
+    setSummaries(map);
+  }, []);
+
   const loadTenants = useCallback(async () => {
     const list = await platformAdminService.listTenants();
     setTenants(list);
     if (list.length && !list.find((t) => t.id === selectedTenant)) {
       setSelectedTenant(list[0].id);
     }
+    await loadSummaries(list);
     return list;
-  }, [selectedTenant]);
+  }, [selectedTenant, loadSummaries]);
 
   const loadDetail = useCallback(async (tenantId: string) => {
     if (!tenantId) return;
     const d = await platformAdminService.getTenantDetail(tenantId);
     setDetail(d);
-    setConfigForm({
-      displayName: d.config.branding?.displayName ?? d.displayName,
-      logoUrl: d.config.branding?.logoUrl ?? '/assets/images/roma.jpeg',
-      accentColor: d.config.branding?.accentColor ?? '#FDD05B',
-      areasText: (d.config.areas ?? []).join(', '),
-      mundialHome: d.config.features?.mundialHome === true,
-      miDesempenoHomeTile: d.config.features?.miDesempenoHomeTile !== false,
-      commercialGeoCheckIn: d.config.features?.commercialGeoCheckIn === true,
-      mfaRequired: d.config.security?.mfaRequired === true,
-    });
   }, []);
 
   const loadCatalog = useCallback(async (tenantId: string) => {
@@ -122,25 +142,44 @@ const PanelPlataformaAdmin: React.FC = () => {
     }));
   }, []);
 
+  const loadGlobalUsers = useCallback(async () => {
+    const users = await platformAdminService.listGlobalUsers();
+    setGlobalUsers(users);
+    return users;
+  }, []);
+
   const refresh = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
       await loadTenants();
-      await Promise.all([
-        loadDetail(selectedTenant),
-        loadCatalog(selectedTenant),
-      ]);
+      if (selectedTenant) {
+        await Promise.all([loadDetail(selectedTenant), loadCatalog(selectedTenant)]);
+      }
+      if (tab === 'usuarios' || tab === 'dashboard') {
+        await loadGlobalUsers();
+      }
     } catch (e: any) {
       setError(e?.response?.data?.message ?? e?.message ?? 'Error cargando datos');
     } finally {
       setLoading(false);
     }
-  }, [loadTenants, loadDetail, loadCatalog, selectedTenant]);
+  }, [loadTenants, loadDetail, loadCatalog, selectedTenant, tab, loadGlobalUsers]);
 
   useEffect(() => {
     void refresh();
   }, [selectedTenant]);
+
+  useEffect(() => {
+    if (tab !== 'usuarios') return;
+    void (async () => {
+      try {
+        await loadGlobalUsers();
+      } catch (e: any) {
+        setError(e?.response?.data?.message ?? e?.message ?? 'Error cargando usuarios');
+      }
+    })();
+  }, [tab, loadGlobalUsers]);
 
   const handleWizardSubmit = async (form: WizardFormState): Promise<WizardSubmitResult> => {
     setError(null);
@@ -201,44 +240,25 @@ const PanelPlataformaAdmin: React.FC = () => {
 
   const handleWizardDone = (tenantId: string) => {
     setSelectedTenant(tenantId);
-    setTab('resumen');
-    setSuccess(`Tenant "${tenantId}" listo.`);
+    setTab('empresas');
+    setSuccess(`Empresa "${tenantId}" creada.`);
   };
 
-  const handleSaveConfig = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setError(null);
-    setSuccess(null);
-    setLoading(true);
-    try {
-      const areas = configForm.areasText.split(',').map((s) => s.trim()).filter(Boolean);
-      const updated = await platformAdminService.updateTenantConfig(selectedTenant, {
-        displayName: configForm.displayName.trim(),
-        logoUrl: configForm.logoUrl.trim(),
-        accentColor: configForm.accentColor.trim(),
-        areas,
-        mundialHome: configForm.mundialHome,
-        miDesempenoHomeTile: configForm.miDesempenoHomeTile,
-        commercialGeoCheckIn: configForm.commercialGeoCheckIn,
-        mfaRequired: configForm.mfaRequired,
-      });
-      setDetail(updated);
-      clearTenantConfigCache(selectedTenant);
-      setSuccess('Configuración guardada.');
-    } catch (err: any) {
-      setError(err?.response?.data?.message ?? err?.message ?? 'Error guardando config');
-    } finally {
-      setLoading(false);
+  const handleToggleActive = async (tenantId: string, isActive: boolean) => {
+    const tenant = tenants.find((t) => t.id === tenantId);
+    const name = tenant?.displayName ?? tenantId;
+    if (
+      !window.confirm(
+        `¿${isActive ? 'Desactivar' : 'Activar'} la empresa "${name}"?`,
+      )
+    ) {
+      return;
     }
-  };
-
-  const handleToggleActive = async () => {
-    if (!detail) return;
     setLoading(true);
     setError(null);
     try {
-      await platformAdminService.setTenantActive(selectedTenant, !detail.isActive);
-      setSuccess(detail.isActive ? 'Tenant desactivado.' : 'Tenant activado.');
+      await platformAdminService.setTenantActive(tenantId, !isActive);
+      setSuccess(isActive ? 'Empresa desactivada.' : 'Empresa activada.');
       await refresh();
     } catch (err: any) {
       setError(err?.response?.data?.message ?? err?.message ?? 'Error');
@@ -269,6 +289,7 @@ const PanelPlataformaAdmin: React.FC = () => {
       setLastCreated(result);
       setSuccess(`Colaborador #${result.colaboradorId} creado.`);
       await refresh();
+      await loadGlobalUsers();
     } catch (err: any) {
       setError(err?.response?.data?.message ?? err?.message ?? 'Error creando colaborador');
     } finally {
@@ -276,148 +297,237 @@ const PanelPlataformaAdmin: React.FC = () => {
     }
   };
 
-  const tabs: { id: TabId; label: string }[] = [
-    { id: 'resumen', label: 'Resumen' },
-    { id: 'config', label: 'Branding & features' },
-    { id: 'colaboradores', label: 'Colaboradores' },
-    { id: 'nuevo', label: '+ Nueva empresa' },
-  ];
+  const handleConfigureTenant = (tenantId: string) => {
+    setSelectedTenant(tenantId);
+    setConsoleTenantId(tenantId);
+  };
+
+  const handleConsoleSaved = () => {
+    clearTenantConfigCache(consoleTenantId ?? selectedTenant);
+    setSuccess('Configuración de empresa guardada.');
+    void refresh();
+  };
+
+  const handleTogglePlatformAdmin = async (user: PlatformGlobalUser) => {
+    const action = user.isPlatformAdmin ? 'quitar' : 'otorgar';
+    const name = `${user.nombre} ${user.apellido}`.trim() || user.nombreUsuario;
+    if (
+      !window.confirm(
+        `¿${action === 'otorgar' ? 'Otorgar' : 'Quitar'} rol Admin plataforma a "${name}"?`,
+      )
+    ) {
+      return;
+    }
+    setUserActionLoading(true);
+    setError(null);
+    try {
+      await platformAdminService.setPlatformAdmin(
+        user.tenantId,
+        user.colaboradorId,
+        !user.isPlatformAdmin,
+      );
+      setSuccess(
+        user.isPlatformAdmin
+          ? 'Admin plataforma removido.'
+          : 'Admin plataforma asignado.',
+      );
+      await loadGlobalUsers();
+    } catch (err: any) {
+      setError(err?.response?.data?.message ?? err?.message ?? 'Error actualizando rol');
+    } finally {
+      setUserActionLoading(false);
+    }
+  };
+
+  const handleResetPassword = async (user: PlatformGlobalUser) => {
+    const name = `${user.nombre} ${user.apellido}`.trim() || user.nombreUsuario;
+    if (!window.confirm(`¿Generar nueva contraseña para "${name}"?`)) return;
+    setUserActionLoading(true);
+    setError(null);
+    try {
+      const result = await platformAdminService.resetUserPassword(
+        user.tenantId,
+        user.colaboradorId,
+      );
+      setSuccess(
+        `Nueva contraseña para ${result.nombreUsuario}: ${result.temporaryPassword}`,
+      );
+    } catch (err: any) {
+      setError(err?.response?.data?.message ?? err?.message ?? 'Error restableciendo contraseña');
+    } finally {
+      setUserActionLoading(false);
+    }
+  };
+
+  const handleSendCredentials = async (user: PlatformGlobalUser) => {
+    setUserActionLoading(true);
+    setError(null);
+    try {
+      const result = await platformAdminService.sendCredentials(
+        user.tenantId,
+        user.colaboradorId,
+      );
+      setSuccess(`Credenciales enviadas por WhatsApp a ${result.telefono}.`);
+    } catch (err: any) {
+      setError(err?.response?.data?.message ?? err?.message ?? 'Error enviando credenciales');
+    } finally {
+      setUserActionLoading(false);
+    }
+  };
+
+  const activeTenants = useMemo(
+    () => tenants.filter((t) => t.isActive).length,
+    [tenants],
+  );
+
+  const globalStats = useMemo(() => {
+    const values = Object.values(summaries);
+    return {
+      colaboradores: values.reduce((n, s) => n + s.colaboradores, 0),
+      roleAssignments: values.reduce((n, s) => n + s.roleAssignments, 0),
+      mfaTenants: values.filter((s) => s.mfaRequired).length,
+    };
+  }, [summaries]);
+
+  const selectedTenantLabel =
+    tenants.find((t) => t.id === selectedTenant)?.displayName ?? selectedTenant;
+
+  const showMainTabs =
+    tab === 'dashboard' || tab === 'empresas' || tab === 'usuarios';
+
+  const tabBar = showMainTabs ? (
+    <div className="grid w-full max-w-xl grid-cols-3 gap-1 rounded-xl bg-slate-100 p-1 md:w-[600px]">
+      {MAIN_TABS.map(({ id, label, icon: Icon }) => (
+        <button
+          key={id}
+          type="button"
+          onClick={() => setTab(id)}
+          className={`inline-flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-medium transition-all ${
+            tab === id
+              ? 'bg-white text-cyan-700 shadow-sm'
+              : 'text-slate-600 hover:text-slate-900'
+          }`}
+        >
+          <Icon className="h-4 w-4 shrink-0" />
+          {label}
+        </button>
+      ))}
+    </div>
+  ) : null;
+
+  const alerts = (
+    <>
+      {error && (
+        <Alert type="error">{typeof error === 'string' ? error : JSON.stringify(error)}</Alert>
+      )}
+      {success && <Alert type="success">{success}</Alert>}
+    </>
+  );
+
+  const backToEmpresas = (
+    <button
+      type="button"
+      onClick={() => setTab('empresas')}
+      className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-cyan-700"
+    >
+      <ArrowLeft className="h-4 w-4" />
+      Volver a empresas
+    </button>
+  );
 
   return (
-    <div className="min-h-screen bg-slate-50">
-      <div className="border-b border-slate-200 bg-white px-4 py-5 md:px-8">
-        <h1 className="text-2xl font-bold text-slate-900">Plataforma Roma</h1>
-        <p className="text-sm text-slate-600">
-          Onboarding de empresas, branding por tenant y alta de colaboradores.
-        </p>
-      </div>
-
-      <div className="mx-auto flex max-w-7xl flex-col gap-6 p-4 md:flex-row md:p-8">
-        <aside className="w-full shrink-0 md:w-64">
-          <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-            <h2 className="mb-3 text-sm font-semibold uppercase tracking-wide text-slate-500">
-              Empresas
-            </h2>
-            <ul className="max-h-80 space-y-1 overflow-y-auto">
-              {tenants.map((t) => (
-                <li key={t.id}>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedTenant(t.id)}
-                    className={`w-full rounded-lg px-3 py-2 text-left text-sm transition ${
-                      selectedTenant === t.id
-                        ? 'bg-cyan-50 font-medium text-cyan-800 ring-1 ring-cyan-200'
-                        : 'hover:bg-slate-50 text-slate-700'
-                    }`}
-                  >
-                    <div>{t.displayName}</div>
-                    <div className="text-xs text-slate-400">
-                      <code>{t.id}</code>
-                      {!t.isActive && ' · inactivo'}
-                    </div>
-                  </button>
-                </li>
-              ))}
-              {!tenants.length && (
-                <li className="py-4 text-sm text-slate-500">Sin tenants.</li>
-              )}
-            </ul>
-          </div>
-        </aside>
-
-        <main className="min-w-0 flex-1">
-          {error && <Alert type="error">{typeof error === 'string' ? error : JSON.stringify(error)}</Alert>}
-          {success && <Alert type="success">{success}</Alert>}
-
-          <div className="mb-4 flex flex-wrap gap-2 border-b border-slate-200 pb-2">
-            {tabs.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                onClick={() => setTab(t.id)}
-                className={`rounded-lg px-4 py-2 text-sm font-medium ${
-                  tab === t.id
-                    ? 'bg-cyan-600 text-white'
-                    : 'bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-50'
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
-            <button
-              type="button"
-              disabled={loading}
-              onClick={() => void refresh()}
-              className="ml-auto rounded-lg px-3 py-2 text-sm text-slate-500 hover:bg-white hover:ring-1 hover:ring-slate-200"
-            >
-              {loading ? 'Actualizando…' : '↻ Actualizar'}
-            </button>
+    <PlatformAdminShell
+      onRefresh={() => void refresh()}
+      loading={loading}
+      alerts={alerts}
+      tabs={tabBar}
+    >
+      {tab === 'dashboard' && (
+        <div className="animate-in fade-in space-y-6 duration-300">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+            <PlatformStatCard
+              title="Empresas totales"
+              value={tenants.length}
+              icon={Building2}
+              colorClass="bg-blue-50 text-blue-600"
+            />
+            <PlatformStatCard
+              title="Empresas activas"
+              value={activeTenants}
+              icon={CheckCircle2}
+              colorClass="bg-emerald-50 text-emerald-600"
+            />
+            <PlatformStatCard
+              title="Colaboradores (global)"
+              value={globalStats.colaboradores}
+              icon={Users}
+              colorClass="bg-violet-50 text-violet-600"
+            />
+            <PlatformStatCard
+              title="Asignaciones RBAC"
+              value={globalStats.roleAssignments}
+              icon={UserCog}
+              colorClass="bg-amber-50 text-amber-600"
+            />
           </div>
 
-          {tab === 'resumen' && detail && (
-            <div className="space-y-6">
-              <div className="flex flex-wrap items-start justify-between gap-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-                <div>
-                  <h2 className="text-xl font-bold text-slate-900">{detail.displayName}</h2>
-                  <p className="text-sm text-slate-500">
-                    ID: <code>{detail.id}</code> · Creado{' '}
-                    {new Date(detail.createdAt).toLocaleDateString('es-AR')}
-                  </p>
-                  <span
-                    className={`mt-2 inline-block rounded-full px-2 py-0.5 text-xs font-medium ${
-                      detail.isActive
-                        ? 'bg-green-100 text-green-800'
-                        : 'bg-slate-200 text-slate-600'
-                    }`}
-                  >
-                    {detail.isActive ? 'Activo' : 'Inactivo'}
-                  </span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => void handleToggleActive()}
-                  disabled={loading}
-                  className="rounded-lg border border-slate-300 px-4 py-2 text-sm font-medium hover:bg-slate-50"
-                >
-                  {detail.isActive ? 'Desactivar tenant' : 'Activar tenant'}
-                </button>
-              </div>
-
-              <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
-                <StatCard label="Colaboradores" value={detail.stats.colaboradores} />
-                <StatCard label="Áreas" value={detail.stats.areas} />
-                <StatCard label="Sucursales" value={detail.stats.sucursales} />
-                <StatCard label="Asignaciones RBAC" value={detail.stats.roleAssignments} />
-              </div>
-
-              <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-                <h3 className="mb-3 font-semibold text-slate-800">Features activas</h3>
-                <ul className="space-y-2 text-sm text-slate-700">
-                  <li>{detail.config.features?.mundialHome ? '✓' : '○'} Mundial en Home</li>
-                  <li>{detail.config.features?.miDesempenoHomeTile !== false ? '✓' : '○'} Tile Mi Desempeño</li>
-                  <li>{detail.config.features?.commercialGeoCheckIn ? '✓' : '○'} Geo check-in Comercial</li>
-                  <li>{detail.config.security?.mfaRequired ? '✓' : '○'} MFA obligatorio (managers/admins)</li>
-                </ul>
+          {detail && (
+            <>
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-3">
+                <PlatformStatCard
+                  title="Tenants con MFA"
+                  value={globalStats.mfaTenants}
+                  icon={Shield}
+                  colorClass="bg-slate-100 text-slate-600"
+                />
+                <PlatformStatCard
+                  title="Áreas (último tenant)"
+                  value={detail.stats.areas}
+                  icon={GitBranch}
+                  colorClass="bg-cyan-50 text-cyan-600"
+                />
+                <PlatformStatCard
+                  title="Sucursales (último tenant)"
+                  value={detail.stats.sucursales}
+                  icon={MapPin}
+                  colorClass="bg-rose-50 text-rose-600"
+                />
               </div>
 
               {catalog?.assignments && catalog.assignments.length > 0 && (
-                <div className="rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-                  <h3 className="mb-3 font-semibold text-slate-800">Roles asignados</h3>
+                <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm">
+                  <div className="border-b border-slate-100 bg-slate-50/50 px-6 py-4">
+                    <h3 className="font-bold text-slate-900">
+                      Roles RBAC — {selectedTenantLabel}
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      Permisos definidos en tenant-rbac del backend.
+                    </p>
+                  </div>
                   <div className="overflow-x-auto">
                     <table className="w-full text-left text-sm">
                       <thead>
-                        <tr className="border-b text-slate-500">
-                          <th className="py-2 pr-4">Colaborador</th>
-                          <th className="py-2 pr-4">Rol</th>
-                          <th className="py-2">Área</th>
+                        <tr className="border-b border-slate-100 text-xs uppercase tracking-wide text-slate-500">
+                          <th className="px-6 py-3 font-semibold">Colaborador</th>
+                          <th className="px-6 py-3 font-semibold">Rol</th>
+                          <th className="px-6 py-3 font-semibold">Código</th>
+                          <th className="px-6 py-3 font-semibold">Área</th>
                         </tr>
                       </thead>
                       <tbody>
                         {catalog.assignments.map((a, i) => (
-                          <tr key={`${a.colaboradorId}-${a.roleCode}-${i}`} className="border-b border-slate-100">
-                            <td className="py-2 pr-4 font-mono text-xs">#{a.colaboradorId}</td>
-                            <td className="py-2 pr-4">{a.roleCode}</td>
-                            <td className="py-2">{a.areaName ?? '—'}</td>
+                          <tr
+                            key={`${a.colaboradorId}-${a.roleCode}-${i}`}
+                            className="border-b border-slate-50 hover:bg-slate-50/80"
+                          >
+                            <td className="px-6 py-3 font-mono text-xs">#{a.colaboradorId}</td>
+                            <td className="px-6 py-3 font-medium">{roleLabel(a.roleCode)}</td>
+                            <td className="px-6 py-3">
+                              <code className="rounded bg-slate-100 px-1.5 py-0.5 text-xs">
+                                {a.roleCode}
+                              </code>
+                            </td>
+                            <td className="px-6 py-3 text-slate-600">{a.areaName ?? '—'}</td>
                           </tr>
                         ))}
                       </tbody>
@@ -425,177 +535,232 @@ const PanelPlataformaAdmin: React.FC = () => {
                   </div>
                 </div>
               )}
-            </div>
+            </>
           )}
+        </div>
+      )}
 
-          {tab === 'config' && (
-            <form onSubmit={handleSaveConfig} className="space-y-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h2 className="text-lg font-semibold">Branding & features — {selectedTenant}</h2>
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="block text-sm">
-                  Nombre visible
-                  <input
-                    required
-                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-                    value={configForm.displayName}
-                    onChange={(e) => setConfigForm({ ...configForm, displayName: e.target.value })}
-                  />
-                </label>
-                <label className="block text-sm">
-                  Color acento
-                  <input
-                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-                    value={configForm.accentColor}
-                    onChange={(e) => setConfigForm({ ...configForm, accentColor: e.target.value })}
-                  />
-                </label>
-                <label className="col-span-full block text-sm">
-                  Logo URL
-                  <input
-                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-                    value={configForm.logoUrl}
-                    onChange={(e) => setConfigForm({ ...configForm, logoUrl: e.target.value })}
-                  />
-                </label>
-                <label className="col-span-full block text-sm">
-                  Áreas (coma)
-                  <input
-                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2"
-                    value={configForm.areasText}
-                    onChange={(e) => setConfigForm({ ...configForm, areasText: e.target.value })}
-                  />
-                </label>
-              </div>
-              <fieldset className="rounded-lg border border-slate-200 p-4">
-                <legend className="px-1 text-sm font-medium">Features</legend>
-                <div className="mt-2 space-y-2">
-                  {[
-                    { key: 'mundialHome' as const, label: 'Mundial en Home' },
-                    { key: 'miDesempenoHomeTile' as const, label: 'Tile Mi Desempeño en Home' },
-                    { key: 'commercialGeoCheckIn' as const, label: 'Marcar posición (Comercial)' },
-                  ].map(({ key, label }) => (
-                    <label key={key} className="flex items-center gap-2 text-sm">
-                      <input
-                        type="checkbox"
-                        checked={configForm[key]}
-                        onChange={(e) =>
-                          setConfigForm({ ...configForm, [key]: e.target.checked })
-                        }
-                      />
-                      {label}
-                    </label>
-                  ))}
-                </div>
-              </fieldset>
-              <fieldset className="rounded-lg border border-slate-200 p-4">
-                <legend className="px-1 text-sm font-medium">Seguridad</legend>
-                <label className="mt-2 flex items-start gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    className="mt-0.5"
-                    checked={configForm.mfaRequired}
-                    onChange={(e) =>
-                      setConfigForm({ ...configForm, mfaRequired: e.target.checked })
-                    }
-                  />
-                  <span>
-                    Exigir MFA (TOTP) a admins y managers de esta empresa
-                    <span className="mt-0.5 block text-xs text-slate-500">
-                      Requiere flags MFA_ENFORCE_* activos en el servidor.
-                    </span>
-                  </span>
-                </label>
-              </fieldset>
-              <button
-                type="submit"
-                disabled={loading}
-                className="rounded-lg bg-cyan-600 px-6 py-2.5 font-medium text-white hover:bg-cyan-700 disabled:opacity-50"
-              >
-                Guardar configuración
-              </button>
-            </form>
-          )}
+      {tab === 'empresas' && (
+        <PlatformTenantList
+          tenants={tenants}
+          summaries={summaries}
+          loading={loading}
+          onToggleActive={handleToggleActive}
+          onConfigure={handleConfigureTenant}
+          onStartOnboarding={() => setTab('onboarding')}
+        />
+      )}
 
-          {tab === 'colaboradores' && (
-            <form onSubmit={handleCreateColaborador} className="space-y-4 rounded-xl border border-slate-200 bg-white p-6 shadow-sm">
-              <h2 className="text-lg font-semibold">Alta colaborador — {selectedTenant}</h2>
-              <div className="grid gap-4 md:grid-cols-2">
-                <label className="block text-sm">
-                  Usuario login
-                  <input required className="mt-1 w-full rounded-lg border px-3 py-2" value={colabForm.nombreUsuario} onChange={(e) => setColabForm({ ...colabForm, nombreUsuario: e.target.value })} />
-                </label>
-                <label className="block text-sm">
-                  Contraseña (vacío = auto)
-                  <input className="mt-1 w-full rounded-lg border px-3 py-2" value={colabForm.password} onChange={(e) => setColabForm({ ...colabForm, password: e.target.value })} />
-                </label>
-                <label className="block text-sm">
-                  Nombre
-                  <input required className="mt-1 w-full rounded-lg border px-3 py-2" value={colabForm.nombre} onChange={(e) => setColabForm({ ...colabForm, nombre: e.target.value })} />
-                </label>
-                <label className="block text-sm">
-                  Apellido
-                  <input required className="mt-1 w-full rounded-lg border px-3 py-2" value={colabForm.apellido} onChange={(e) => setColabForm({ ...colabForm, apellido: e.target.value })} />
-                </label>
-                <label className="block text-sm">
-                  Email
-                  <input type="email" className="mt-1 w-full rounded-lg border px-3 py-2" value={colabForm.email} onChange={(e) => setColabForm({ ...colabForm, email: e.target.value })} />
-                </label>
-                <label className="block text-sm">
-                  Teléfono WhatsApp
-                  <input className="mt-1 w-full rounded-lg border px-3 py-2" value={colabForm.telefono} onChange={(e) => setColabForm({ ...colabForm, telefono: e.target.value })} />
-                </label>
-                <label className="block text-sm">
-                  Área
-                  <select required className="mt-1 w-full rounded-lg border px-3 py-2" value={colabForm.area} onChange={(e) => setColabForm({ ...colabForm, area: e.target.value })}>
-                    {(catalog?.areas ?? []).map((a) => (
-                      <option key={a.code} value={a.name}>{a.name}</option>
-                    ))}
-                  </select>
-                </label>
-                <label className="block text-sm">
-                  Sucursal
-                  <select required className="mt-1 w-full rounded-lg border px-3 py-2" value={colabForm.sucursal} onChange={(e) => setColabForm({ ...colabForm, sucursal: e.target.value })}>
-                    {(catalog?.sucursales ?? []).map((s) => (
-                      <option key={s.code} value={s.code}>{s.name} ({s.code})</option>
-                    ))}
-                  </select>
-                </label>
-                <label className="block text-sm">
-                  Rol
-                  <select className="mt-1 w-full rounded-lg border px-3 py-2" value={colabForm.roleCode} onChange={(e) => setColabForm({ ...colabForm, roleCode: e.target.value })}>
-                    {ROLE_OPTIONS.map((r) => (
-                      <option key={r.value} value={r.value}>{r.label}</option>
-                    ))}
-                  </select>
-                </label>
-              </div>
-              <label className="flex items-center gap-2 text-sm">
-                <input type="checkbox" checked={colabForm.sendWhatsApp} onChange={(e) => setColabForm({ ...colabForm, sendWhatsApp: e.target.checked })} />
-                Enviar credenciales por WhatsApp
+      {tab === 'usuarios' && (
+        <>
+          <PlatformUserList
+            users={globalUsers}
+            loading={loading}
+            actionLoading={userActionLoading}
+            onTogglePlatformAdmin={handleTogglePlatformAdmin}
+            onResetPassword={handleResetPassword}
+            onSendCredentials={handleSendCredentials}
+            onEditUser={setEditingUser}
+            onCreateUser={() => setTab('nuevo-colaborador')}
+          />
+          <EditPlatformUserDialog
+            user={editingUser}
+            open={!!editingUser}
+            onClose={() => setEditingUser(null)}
+            onSaved={(updated) => {
+              setGlobalUsers((prev) =>
+                prev.map((u) =>
+                  u.tenantId === updated.tenantId &&
+                  u.colaboradorId === updated.colaboradorId
+                    ? updated
+                    : u,
+                ),
+              );
+              setSuccess('Usuario actualizado.');
+            }}
+          />
+        </>
+      )}
+
+      {tab === 'nuevo-colaborador' && (
+        <div>
+          <button
+            type="button"
+            onClick={() => setTab('usuarios')}
+            className="mb-4 inline-flex items-center gap-2 text-sm font-medium text-slate-600 hover:text-cyan-700"
+          >
+            <ArrowLeft className="h-4 w-4" />
+            Volver a usuarios
+          </button>
+
+          <div className="mb-4 rounded-2xl border border-slate-200 bg-white p-4 shadow-sm">
+            <label className="mb-1 block text-xs font-medium text-slate-500">Empresa</label>
+            <select
+              className="w-full max-w-md rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm md:min-w-[320px]"
+              value={selectedTenant}
+              onChange={(e) => setSelectedTenant(e.target.value)}
+            >
+              {tenants.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.displayName} ({t.id})
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <form
+            onSubmit={handleCreateColaborador}
+            className="space-y-4 rounded-2xl border border-slate-200 bg-white p-6 shadow-sm"
+          >
+            <h2 className="text-lg font-semibold">Alta colaborador — {selectedTenantLabel}</h2>
+            <div className="grid gap-4 md:grid-cols-2">
+              <label className="block text-sm">
+                Usuario login
+                <input
+                  required
+                  className="mt-1 w-full rounded-lg border px-3 py-2"
+                  value={colabForm.nombreUsuario}
+                  onChange={(e) =>
+                    setColabForm({ ...colabForm, nombreUsuario: e.target.value })
+                  }
+                />
               </label>
-              <button type="submit" disabled={loading} className="rounded-lg bg-cyan-600 px-6 py-2.5 font-medium text-white hover:bg-cyan-700 disabled:opacity-50">
-                Crear colaborador
-              </button>
-              {lastCreated && (
-                <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm">
-                  <p className="font-medium">Credenciales</p>
-                  <p>Usuario: <code>{lastCreated.nombreUsuario}</code></p>
-                  <p>Contraseña: <code>{lastCreated.temporaryPassword}</code></p>
-                </div>
-              )}
-            </form>
-          )}
+              <label className="block text-sm">
+                Contraseña (vacío = auto)
+                <input
+                  className="mt-1 w-full rounded-lg border px-3 py-2"
+                  value={colabForm.password}
+                  onChange={(e) => setColabForm({ ...colabForm, password: e.target.value })}
+                />
+              </label>
+              <label className="block text-sm">
+                Nombre
+                <input
+                  required
+                  className="mt-1 w-full rounded-lg border px-3 py-2"
+                  value={colabForm.nombre}
+                  onChange={(e) => setColabForm({ ...colabForm, nombre: e.target.value })}
+                />
+              </label>
+              <label className="block text-sm">
+                Apellido
+                <input
+                  required
+                  className="mt-1 w-full rounded-lg border px-3 py-2"
+                  value={colabForm.apellido}
+                  onChange={(e) => setColabForm({ ...colabForm, apellido: e.target.value })}
+                />
+              </label>
+              <label className="block text-sm">
+                Email
+                <input
+                  type="email"
+                  className="mt-1 w-full rounded-lg border px-3 py-2"
+                  value={colabForm.email}
+                  onChange={(e) => setColabForm({ ...colabForm, email: e.target.value })}
+                />
+              </label>
+              <label className="block text-sm">
+                Teléfono WhatsApp
+                <input
+                  className="mt-1 w-full rounded-lg border px-3 py-2"
+                  value={colabForm.telefono}
+                  onChange={(e) => setColabForm({ ...colabForm, telefono: e.target.value })}
+                />
+              </label>
+              <label className="block text-sm">
+                Área
+                <select
+                  required
+                  className="mt-1 w-full rounded-lg border px-3 py-2"
+                  value={colabForm.area}
+                  onChange={(e) => setColabForm({ ...colabForm, area: e.target.value })}
+                >
+                  {(catalog?.areas ?? []).map((a) => (
+                    <option key={a.code} value={a.name}>
+                      {a.name}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block text-sm">
+                Sucursal
+                <select
+                  required
+                  className="mt-1 w-full rounded-lg border px-3 py-2"
+                  value={colabForm.sucursal}
+                  onChange={(e) => setColabForm({ ...colabForm, sucursal: e.target.value })}
+                >
+                  {(catalog?.sucursales ?? []).map((s) => (
+                    <option key={s.code} value={s.code}>
+                      {s.name} ({s.code})
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label className="block text-sm">
+                Rol RBAC
+                <select
+                  className="mt-1 w-full rounded-lg border px-3 py-2"
+                  value={colabForm.roleCode}
+                  onChange={(e) => setColabForm({ ...colabForm, roleCode: e.target.value })}
+                >
+                  {ROMA_ROLE_OPTIONS.map((r) => (
+                    <option key={r.value} value={r.value}>
+                      {r.label}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            </div>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={colabForm.sendWhatsApp}
+                onChange={(e) => setColabForm({ ...colabForm, sendWhatsApp: e.target.checked })}
+              />
+              Enviar credenciales por WhatsApp
+            </label>
+            <button
+              type="submit"
+              disabled={loading}
+              className="rounded-lg bg-cyan-600 px-6 py-2.5 font-medium text-white hover:bg-cyan-700 disabled:opacity-50"
+            >
+              Crear colaborador
+            </button>
+            {lastCreated && (
+              <div className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm">
+                <p className="font-medium">Credenciales</p>
+                <p>
+                  Usuario: <code>{lastCreated.nombreUsuario}</code>
+                </p>
+                <p>
+                  Contraseña: <code>{lastCreated.temporaryPassword}</code>
+                </p>
+              </div>
+            )}
+          </form>
+        </div>
+      )}
 
-          {tab === 'nuevo' && (
-            <TenantOnboardingWizard
-              loading={loading}
-              onSubmit={handleWizardSubmit}
-              onDone={handleWizardDone}
-            />
-          )}
-        </main>
-      </div>
-    </div>
+      {tab === 'onboarding' && (
+        <div>
+          {backToEmpresas}
+          <TenantOnboardingWizard
+            loading={loading}
+            onSubmit={handleWizardSubmit}
+            onDone={handleWizardDone}
+          />
+        </div>
+      )}
+
+      <TenantControlConsole
+        tenantId={consoleTenantId}
+        open={!!consoleTenantId}
+        onClose={() => setConsoleTenantId(null)}
+        onSaved={handleConsoleSaved}
+      />
+    </PlatformAdminShell>
   );
 };
 

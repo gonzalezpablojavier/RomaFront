@@ -42,6 +42,17 @@ export interface TenantUserRoleAssignment {
   sucursalName?: string | null;
 }
 
+export interface TenantMember {
+  colaboradorId: number;
+  nombreUsuario: string;
+  nombre: string;
+  apellido: string;
+  email: string;
+  area: string;
+  sucursal: string;
+  roles: TenantUserRoleAssignment[];
+}
+
 export interface TenantAccess {
   tenantId: string;
   colaboradorId: number;

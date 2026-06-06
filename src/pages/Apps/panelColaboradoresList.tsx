@@ -5,7 +5,14 @@ import {
     getManagerIdsForEmpresa,
     getManagerAreasForEmpresa,
 } from '../../services/empresaService';
+import {
+    canManageTenantRoles,
+    listTenantMembers,
+} from '../../services/tenantRbacService';
 import { sendBulkPushNotifications } from '../../services/pushNotificationService';
+import { MemberRolesModal } from '../../components/tenant-admin/MemberRolesModal';
+import { roleLabel } from '../../components/platform-admin/rbacLabels';
+import type { TenantMember } from '../../types/tenantRbac';
 import NotificationModal from './NotificationModal';
 import * as XLSX from 'xlsx';  // <= IMPORTANTE
 
@@ -141,6 +148,20 @@ const ColaboradoresList: React.FC = () => {
     const [filterCumple, setFilterCumple] = useState<'' | 'hoy' | 'manana' | 'semana'>('');
 
     const [isNotificationModalOpen, setIsNotificationModalOpen] = useState(false);
+    const [canManageRoles, setCanManageRoles] = useState(false);
+    const [membersById, setMembersById] = useState<Map<number, TenantMember>>(new Map());
+    const [editingMember, setEditingMember] = useState<TenantMember | null>(null);
+
+    useEffect(() => {
+        const tenantId = getSessionEmpresaId();
+        if (!tenantId || !canManageTenantRoles()) return;
+        void listTenantMembers(tenantId)
+            .then((list) => {
+                setMembersById(new Map(list.map((m) => [m.colaboradorId, m])));
+                setCanManageRoles(true);
+            })
+            .catch(() => setCanManageRoles(false));
+    }, [empresaId]);
 
     // Selectores para horas trabajadas (mes/año actual por defecto)
     const [mesHoras, setMesHoras] = useState(new Date().getMonth() + 1); // 1-12
@@ -535,6 +556,9 @@ const ColaboradoresList: React.FC = () => {
                             <th className="py-2 px-4 border-b" style={{ backgroundColor: 'white !important', color: 'black !important' }}>Fecha Domicilio Actual.</th>
                             <th className="py-2 px-4 border-b" style={{ backgroundColor: 'white !important', color: 'black !important' }}>Nacimiento</th>
                             <th className="py-2 px-4 border-b" style={{ backgroundColor: 'white !important', color: 'black !important' }}>Hs Trabajadas</th>
+                            {canManageRoles && (
+                                <th className="py-2 px-4 border-b" style={{ backgroundColor: 'white !important', color: 'black !important' }}>Roles RBAC</th>
+                            )}
                             <th className="py-2 px-4 border-b" style={{ backgroundColor: 'white !important', color: 'black !important' }}></th>
                         </tr>
                     </thead>
@@ -560,6 +584,35 @@ const ColaboradoresList: React.FC = () => {
                                             : '-'}
                                     </td>
                                     <td className="py-2 px-4 border-b">  {col.hstrabajadas !== undefined ? col.hstrabajadas : '-'}</td>
+                                    {canManageRoles && (
+                                        <td className="py-2 px-4 border-b">
+                                            <div className="flex flex-wrap gap-1">
+                                                {(membersById.get(col.colaboradorID)?.roles ?? [])
+                                                    .filter((r) => r.roleCode !== 'platform_admin')
+                                                    .map((r) => (
+                                                        <span
+                                                            key={r.roleCode}
+                                                            className="rounded bg-slate-100 px-1.5 py-0.5 text-xs text-slate-700"
+                                                        >
+                                                            {roleLabel(r.roleCode)}
+                                                        </span>
+                                                    ))}
+                                                {!(membersById.get(col.colaboradorID)?.roles.length) && (
+                                                    <span className="text-xs text-slate-400">Sin rol</span>
+                                                )}
+                                            </div>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    const m = membersById.get(col.colaboradorID);
+                                                    if (m) setEditingMember(m);
+                                                }}
+                                                className="mt-1 text-xs font-semibold text-cyan-700 hover:underline"
+                                            >
+                                                Editar roles
+                                            </button>
+                                        </td>
+                                    )}
                                     <td className="py-2 px-4 border-b">
                                         {/* Botones de acción */}
                                         <button
@@ -577,7 +630,7 @@ const ColaboradoresList: React.FC = () => {
                             ))
                         ) : (
                             <tr>
-                                <td colSpan={11} className="py-2 px-4 border-b text-center">
+                                <td colSpan={canManageRoles ? 12 : 11} className="py-2 px-4 border-b text-center">
                                     No hay colaboradores registrados.
                                 </td>
                             </tr>
@@ -593,6 +646,22 @@ const ColaboradoresList: React.FC = () => {
                 filteredColaboradores={filteredColaboradores}
                 onSendNotification={handleSendBulkNotifications}
             />
+
+            {empresaId && (
+                <MemberRolesModal
+                    tenantId={empresaId}
+                    member={editingMember}
+                    open={!!editingMember}
+                    onClose={() => setEditingMember(null)}
+                    onSaved={(updated) => {
+                        setMembersById((prev) => {
+                            const next = new Map(prev);
+                            next.set(updated.colaboradorId, updated);
+                            return next;
+                        });
+                    }}
+                />
+            )}
         </div>
     );
 };

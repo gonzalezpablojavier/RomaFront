@@ -1,5 +1,5 @@
 import { apiClient } from '../api/apiClient';
-import { TenantAccess, TenantCatalog } from '../types/tenantRbac';
+import { TenantAccess, TenantCatalog, TenantMember } from '../types/tenantRbac';
 
 let catalogCache: TenantCatalog | null = null;
 let accessCache: TenantAccess | null = null;
@@ -32,6 +32,33 @@ export async function hydrateTenantRbac(tenantId: string): Promise<void> {
 
 export function hasTenantPermission(permissionCode: string): boolean {
   return accessCache?.permissions.includes(permissionCode) ?? false;
+}
+
+export function canManageTenantRoles(): boolean {
+  return hasTenantPermission('tenant.roles.manage');
+}
+
+export function canManageTenantAdmin(): boolean {
+  return hasTenantPermission('tenant.admin');
+}
+
+export async function listTenantMembers(tenantId: string): Promise<TenantMember[]> {
+  const id = String(tenantId || 'default');
+  const { data } = await apiClient.get<TenantMember[]>(`/tenants/${id}/members`);
+  return data;
+}
+
+export async function setTenantMemberRoles(
+  tenantId: string,
+  colaboradorId: number,
+  payload: { roleCodes: string[]; areaName?: string; sucursalCode?: string },
+): Promise<TenantMember> {
+  const id = String(tenantId || 'default');
+  const { data } = await apiClient.put<TenantMember>(
+    `/tenants/${id}/members/${colaboradorId}/roles`,
+    payload,
+  );
+  return data;
 }
 
 export function getTenantAreaNames(): string[] {

@@ -14,12 +14,17 @@ export interface TenantSecurity {
   mfaRequired?: boolean;
 }
 
+export interface TenantAdmin {
+  internalNotes?: string;
+}
+
 export interface TenantConfig {
   tenantId: string;
   areas: string[];
   branding?: TenantBranding;
   features?: TenantFeatures;
   security?: TenantSecurity;
+  admin?: TenantAdmin;
 }
 
 export const DEFAULT_TENANT_SECURITY: TenantSecurity = {
