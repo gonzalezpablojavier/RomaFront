@@ -185,15 +185,6 @@ const LoginBoxed = () => {
                 Iniciar Sesión
               </button>
 
-              <p className="text-center">
-                ¿Primera vez en Roma?
-                <Link
-                  to="/auth/register"
-                  className="font-bold text-primary hover:underline ltr:ml-1 rtl:mr-1"
-                >
-                  Registrate aca.
-                </Link>
-              </p>
             </form>
           </>
         )}
