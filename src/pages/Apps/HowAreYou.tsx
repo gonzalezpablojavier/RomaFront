@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { apiClient } from '../../api/apiClient';
 import Presentismo from './Presentismo';
 import { CheckCircleIcon, XCircleIcon } from 'lucide-react';
+import { getSessionUserId } from '../../session/sessionStore';
 
 const HowAreYou: React.FC = () => {
   const [mood, setMood] = useState<string | null>(null);
@@ -10,9 +11,9 @@ const HowAreYou: React.FC = () => {
   const [currentStep, setCurrentStep] = useState(1);
   const [cargando, setCargando] = useState(false);
   useEffect(() => {
-    const storedColaboradorID = localStorage.getItem('colaboradorID');
-    if (storedColaboradorID) {
-      setColaboradorID(storedColaboradorID);
+    const userId = getSessionUserId();
+    if (userId) {
+      setColaboradorID(userId);
     }
   }, []);
   const manejarComponenteMontado = () => {

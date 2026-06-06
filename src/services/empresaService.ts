@@ -1,10 +1,11 @@
-// src/services/empresaService.ts
+// src/services/empresaService.ts — RBAC catalog + tenant_config (sin IDs hardcodeados).
 
-import { empresaConfig as staticEmpresaConfig } from '../config/empresaConfig';
 import {
   getCachedTenantCatalog,
   getDepoSucursalLeaderIdsFromCatalog,
+  getTenantAreaNames,
 } from './tenantRbacService';
+import { getTenantAreas } from './tenantConfigService';
 
 export interface EmpresaConfigShape {
   areas: string[];
@@ -14,7 +15,7 @@ export interface EmpresaConfigShape {
   managerAreas: Record<string, string>;
 }
 
-const STATIC_DEFAULT: EmpresaConfigShape = {
+const EMPTY: EmpresaConfigShape = {
   areas: [],
   managerIds: [],
   managerLowIds: [],
@@ -29,20 +30,6 @@ const MANAGER_ROLE_CODES = new Set([
   'depo_sucursal_leader',
   'depo_coordinator',
 ]);
-
-function fromStatic(empresaId: string): EmpresaConfigShape {
-  const cfg =
-    staticEmpresaConfig[empresaId] ??
-    staticEmpresaConfig['default'] ??
-    STATIC_DEFAULT;
-  return {
-    areas: cfg.areas ?? [],
-    managerIds: cfg.managerIds ?? [],
-    managerLowIds: cfg.managerLowIds ?? [],
-    managerHighIds: cfg.managerHighIds ?? [],
-    managerAreas: cfg.managerAreas ?? {},
-  };
-}
 
 function fromCatalogAssignments(empresaId: string): EmpresaConfigShape | null {
   const catalog = getCachedTenantCatalog();
@@ -66,8 +53,11 @@ function fromCatalogAssignments(empresaId: string): EmpresaConfigShape | null {
     }
   }
 
+  const areasFromCatalog = catalog.areas.map((x) => x.name);
+  const areasFromConfig = getTenantAreas(empresaId);
+
   return {
-    areas: catalog.areas.map((x) => x.name),
+    areas: areasFromCatalog.length ? areasFromCatalog : areasFromConfig,
     managerIds: Array.from(new Set(managerIds)),
     managerLowIds: Array.from(new Set(managerLowIds)),
     managerHighIds: Array.from(new Set(managerHighIds)),
@@ -76,11 +66,16 @@ function fromCatalogAssignments(empresaId: string): EmpresaConfigShape | null {
 }
 
 export const getEmpresaConfig = (empresaId: string): EmpresaConfigShape => {
-  return fromCatalogAssignments(empresaId) ?? fromStatic(empresaId);
+  return fromCatalogAssignments(empresaId) ?? {
+    ...EMPTY,
+    areas: getTenantAreas(empresaId),
+  };
 };
 
 export const getAreasForEmpresa = (empresaId: string): string[] => {
-  return getEmpresaConfig(empresaId).areas;
+  const fromCatalog = getTenantAreaNames();
+  if (fromCatalog.length) return fromCatalog;
+  return getTenantAreas(empresaId);
 };
 
 export const getSucursalesForEmpresa = (empresaId: string): string[] => {
@@ -88,7 +83,7 @@ export const getSucursalesForEmpresa = (empresaId: string): string[] => {
   if (catalog?.tenantId === String(empresaId || 'default') && catalog.sucursales.length) {
     return catalog.sucursales.map((s) => s.code);
   }
-  return ['PICO', 'MDP', 'DIMES', 'ROSARIO'];
+  return [];
 };
 
 export const getManagerIdsForEmpresa = (empresaId: string): string[] => {
@@ -101,7 +96,6 @@ export const getManagerAreasForEmpresa = (
   return getEmpresaConfig(empresaId).managerAreas;
 };
 
-/** ColaboradorIDs con rol depo_sucursal_leader (desde catalog RBAC). */
 export const getDepoSucursalLeaderIds = (empresaId: string): Set<string> => {
   const catalog = getCachedTenantCatalog();
   if (catalog?.tenantId !== String(empresaId || 'default')) {

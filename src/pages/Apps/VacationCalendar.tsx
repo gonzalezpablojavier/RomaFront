@@ -8,6 +8,7 @@ import interactionPlugin from '@fullcalendar/interaction';
 import { EventInput, DateSelectArg, EventClickArg } from '@fullcalendar/core';
 import { getAreasForEmpresa, getManagerIdsForEmpresa, getManagerAreasForEmpresa } from '../../services/empresaService';
 import esLocale from '@fullcalendar/core/locales/es';
+import { getSessionEmpresaId, getSessionUserId, getSessionUser } from '../../session/sessionStore';
 
 interface Vacaciones {
   id: number;
@@ -150,7 +151,7 @@ const VacationCalendar: React.FC = () => {
     };
 
   useEffect(() => {
-    const storedEmpresaID = localStorage.getItem('l_empresa_id');
+    const storedEmpresaID = getSessionEmpresaId();
     if (storedEmpresaID) {
       setEmpresaId(storedEmpresaID);
       const empresaAreas = getAreasForEmpresa(storedEmpresaID);
@@ -167,7 +168,7 @@ const VacationCalendar: React.FC = () => {
   useEffect(() => {
     if (empresaId) {
       fetchData();
-      const userID = ((localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')!) : null) as { user_code: string | null })?.user_code;
+      const userID = getSessionUserId();
       if (userID) {
         setCurrentUserID(userID);
         const userIDString = userID.toString();

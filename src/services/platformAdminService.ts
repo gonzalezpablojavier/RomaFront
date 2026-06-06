@@ -1,11 +1,24 @@
 import { apiClient } from '../api/apiClient';
 import { TenantCatalog } from '../types/tenantRbac';
+import { TenantConfig } from '../types/tenantConfig';
 
 export interface PlatformTenant {
   id: string;
   displayName: string;
   isActive: boolean;
   createdAt: string;
+}
+
+export interface TenantDetailStats {
+  colaboradores: number;
+  areas: number;
+  sucursales: number;
+  roleAssignments: number;
+}
+
+export interface TenantDetail extends PlatformTenant {
+  config: TenantConfig;
+  stats: TenantDetailStats;
 }
 
 export interface CreateTenantPayload {
@@ -18,6 +31,23 @@ export interface CreateTenantPayload {
   empresaPanelEmail?: string;
   empresaPanelUser?: string;
   empresaPanelPass?: string;
+  logoUrl?: string;
+  accentColor?: string;
+  mundialHome?: boolean;
+  miDesempenoHomeTile?: boolean;
+  commercialGeoCheckIn?: boolean;
+  mfaRequired?: boolean;
+}
+
+export interface UpdateTenantConfigPayload {
+  areas?: string[];
+  displayName?: string;
+  logoUrl?: string;
+  accentColor?: string;
+  mundialHome?: boolean;
+  miDesempenoHomeTile?: boolean;
+  commercialGeoCheckIn?: boolean;
+  mfaRequired?: boolean;
 }
 
 export interface CreateColaboradorPayload {
@@ -49,8 +79,34 @@ export const platformAdminService = {
     return data;
   },
 
+  getTenantDetail: async (tenantId: string) => {
+    const { data } = await apiClient.get<TenantDetail>(
+      `/platform/tenants/${tenantId}`,
+    );
+    return data;
+  },
+
   createTenant: async (payload: CreateTenantPayload) => {
     const { data } = await apiClient.post('/platform/tenants', payload);
+    return data;
+  },
+
+  updateTenantConfig: async (
+    tenantId: string,
+    payload: UpdateTenantConfigPayload,
+  ) => {
+    const { data } = await apiClient.patch<TenantDetail>(
+      `/platform/tenants/${tenantId}/config`,
+      payload,
+    );
+    return data;
+  },
+
+  setTenantActive: async (tenantId: string, isActive: boolean) => {
+    const { data } = await apiClient.patch<{ id: string; isActive: boolean }>(
+      `/platform/tenants/${tenantId}/active`,
+      { isActive },
+    );
     return data;
   },
 

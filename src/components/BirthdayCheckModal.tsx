@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useCallback } from 'react';
 import { apiClient } from '../api/apiClient';
+import { getSessionEmpresaId, getSessionUserId, getSessionUser } from '../session/sessionStore';
 
 /** Retorna true si fechaNacimiento es válida y el colaborador es ≥ 18 años */
 function isValidAdult(fechaNacimiento: string | null | undefined): boolean {
@@ -30,16 +31,8 @@ const BirthdayCheckModal: React.FC = () => {
   const [profileData, setProfileData] = useState<any>(null);
 
   const getIds = useCallback(() => {
-    const rawUser = localStorage.getItem('user');
-    let colaboradorID: string | null = null;
-    try {
-      const parsed = rawUser ? JSON.parse(rawUser) : null;
-      const maybe = parsed?.user_code ?? parsed?.userId ?? parsed?.id;
-      if (maybe != null) colaboradorID = String(maybe);
-    } catch {
-      colaboradorID = null;
-    }
-    const empresaId = localStorage.getItem('l_empresa_id');
+    const colaboradorID = getSessionUserId();
+    const empresaId = getSessionEmpresaId();
     return { colaboradorID, empresaId };
   }, []);
 

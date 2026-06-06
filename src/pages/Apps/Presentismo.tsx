@@ -2,6 +2,7 @@ import React, { useEffect, useImperativeHandle, useRef, useState, forwardRef } f
 import { Html5Qrcode } from 'html5-qrcode';
 import { CheckCircle2, CircleAlert } from 'lucide-react';
 import { apiClient, isAxiosError } from '../../api/apiClient';
+import { getSessionEmpresaId, getSessionUserId, getSessionUser } from '../../session/sessionStore';
 
 export type PresentismoRef = {
   iniciarCamaraSiPuede: () => void;
@@ -40,7 +41,7 @@ const MS_ALERTA_EXITO = 16000;
 const MS_ALERTA_ERROR = 9000;
 
 function obtenerEmpresaId(): string {
-  return localStorage.getItem('l_empresa_id') ?? '';
+  return getSessionEmpresaId() ?? '';
 }
 
 /** Interpreta respuestas tipo `{ ok: 1 }` o cuerpo vacío/legacy en 200. */
@@ -217,8 +218,8 @@ const Presentismo = forwardRef<PresentismoRef, PresentismoProps>(function Presen
 
   // Función actualizada para obtener el resumen del día
   const obtenerResumenDia = async () => {
-    const usuario = ((localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')!) : null) as { user_code: string | null })?.user_code;
-    const empresaGuardada = localStorage.getItem('l_empresa_id');
+    const usuario = getSessionUserId();
+    const empresaGuardada = getSessionEmpresaId();
     if (!empresaGuardada || !empresaGuardada) return;
 
     console.log('colaborado:', usuario);
@@ -268,7 +269,7 @@ const Presentismo = forwardRef<PresentismoRef, PresentismoProps>(function Presen
   };
 
   const enviarDatosAlBackend = async (textoDecodificado: string): Promise<BackendResponse> => {
-    const usuario = ((localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')!) : null) as { user_code: string | null })?.user_code;
+    const usuario = getSessionUserId();
 
     const colaboradorID = usuario;
     const tipoEnviado = resumenDia.proximoTipo;
@@ -385,7 +386,7 @@ const Presentismo = forwardRef<PresentismoRef, PresentismoProps>(function Presen
 
   const validarTokenComercial = async () => {
     if (token.toUpperCase() === COMERCIAL_TOKEN) {
-      const usuario = ((localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')!) : null) as { user_code: string | null })?.user_code;
+      const usuario = getSessionUserId();
 
       const ahora = new Date();
       const horaArgentina = new Date(ahora.toLocaleString("en-US", { timeZone: "America/Argentina/Buenos_Aires" }));
@@ -523,9 +524,9 @@ const Presentismo = forwardRef<PresentismoRef, PresentismoProps>(function Presen
   useEffect(() => {
     const fetchUserArea = async () => {
       try {
-        const user = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')!) : null;
+        const user = getSessionUser();
         const userCode = user?.user_code;
-        const empresaGuardada = localStorage.getItem('l_empresa_id');
+        const empresaGuardada = getSessionEmpresaId();
 
         if (!userCode || !empresaGuardada) return;
 
@@ -555,14 +556,13 @@ const Presentismo = forwardRef<PresentismoRef, PresentismoProps>(function Presen
 
 
   useEffect(() => {
-    const colaboradorGuardado = localStorage.getItem('colaboradorID');
-    const empresaGuardada = localStorage.getItem('l_empresa_id');
+    const userId = getSessionUserId();
+    const empresaGuardada = getSessionEmpresaId();
 
-    // Obtener el resumen inicial
     obtenerResumenDia();
 
-    if (colaboradorGuardado) {
-      setColaboradorID(colaboradorGuardado);
+    if (userId) {
+      setColaboradorID(userId);
     }
 
     if (empresaGuardada) {

@@ -6,6 +6,7 @@ import IdeaEvaluation from './IdeaEvaluation';
 import { Star } from 'lucide-react';
 import { Coins } from 'lucide-react';
 import CoinRating from './CoinRating';
+import { getSessionEmpresaId, getSessionUserId, getSessionUser } from '../../session/sessionStore';
 
 interface Idea {
   id: number;
@@ -65,7 +66,7 @@ const PanelAdminIdeas: React.FC = () => {
 
   
   useEffect(() => {
-    const storedEmpresaID = localStorage.getItem('l_empresa_id');
+    const storedEmpresaID = getSessionEmpresaId();
     if (storedEmpresaID) {
       setEmpresaId(storedEmpresaID);
       const empresaAreas = getAreasForEmpresa(storedEmpresaID);

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { apiClient } from '../../api/apiClient';
 import { buildCertificadoAdminUrl } from '../../config/env';
 import { format, parseISO, isValid } from 'date-fns';
+import { getSessionEmpresaId, getSessionUserId, getSessionUser } from '../../session/sessionStore';
 import {
   Table,
   TableBody,
@@ -51,7 +52,7 @@ const PanelComprobantes: React.FC = () => {
 
    
   useEffect(() => {
-    const storedEmpresaID = localStorage.getItem('l_empresa_id');
+    const storedEmpresaID = getSessionEmpresaId();
     if (storedEmpresaID) {
       setEmpresaId(storedEmpresaID);
       const empresaAreas = getAreasForEmpresa(storedEmpresaID);

@@ -1,9 +1,23 @@
-import React, { createContext, useContext, useState, ReactNode, useEffect,useCallback } from 'react';
+import React, { useCallback, useEffect, useState, ReactNode } from 'react';
 import { Route, hasPermission } from '../config/permissions';
-import { ensureFreshAccessToken, setDefaultHeaders } from '../api/api_auth';
+import {
+  ensureFreshAccessToken,
+  fetchSessionProfile,
+  logoutUser,
+  setDefaultHeaders,
+} from '../api/api_auth';
+import {
+  clearSession,
+  getSessionEmpresaId,
+  getSessionUser,
+  purgeLegacyAuthStorage,
+  setSession,
+  type SessionUser,
+} from '../session/sessionStore';
 import {
   clearTenantConfigCache,
   loadTenantConfig,
+  getTenantBranding,
 } from '../services/tenantConfigService';
 import {
   clearTenantRbacCache,
@@ -11,11 +25,11 @@ import {
 } from '../services/tenantRbacService';
 
 interface AuthContextType {
- 
   isAuthenticated: boolean;
-  user: any;
+  sessionReady: boolean;
+  user: SessionUser | null;
   empresaId: string | null;
-  login: (user: any, empresaID: string) => void;
+  login: (user: SessionUser, empresaID: string) => void;
   logout: () => void;
   recoverSession: () => Promise<boolean>;
   hasPermission: (route: Route) => boolean;
@@ -25,10 +39,10 @@ interface MyComponentProps {
   children?: ReactNode;
 }
 
-const AuthContext = createContext<AuthContextType | undefined>(undefined);
+const AuthContext = React.createContext<AuthContextType | undefined>(undefined);
 
 export const useAuth = () => {
-  const context = useContext(AuthContext);
+  const context = React.useContext(AuthContext);
   if (!context) {
     throw new Error('useAuth must be used within an AuthProvider');
   }
@@ -36,18 +50,12 @@ export const useAuth = () => {
 };
 
 export const AuthProvider: React.FC<MyComponentProps> = ({ children }) => {
-  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
-    const saved = localStorage.getItem('isAuthenticated');
-    return saved ? JSON.parse(saved) : false;
-  });
-  const [user, setUser] = useState<any>(() => {
-    const saved = localStorage.getItem('user');
-    return saved ? JSON.parse(saved) : null;
-  });
-
-  const [empresaId, setEmpresaID] = useState<string | null>(() => {
-    return localStorage.getItem('l_empresa_id');
-  });
+  const [sessionReady, setSessionReady] = useState(false);
+  const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [user, setUser] = useState<SessionUser | null>(() => getSessionUser());
+  const [empresaId, setEmpresaID] = useState<string | null>(() =>
+    getSessionEmpresaId(),
+  );
 
   const hydrateTenantConfig = useCallback(async (tenantId: string | null) => {
     if (!tenantId) return;
@@ -56,76 +64,101 @@ export const AuthProvider: React.FC<MyComponentProps> = ({ children }) => {
         loadTenantConfig(tenantId),
         hydrateTenantRbac(tenantId),
       ]);
+      const branding = getTenantBranding(tenantId);
+      if (branding.displayName) {
+        document.title = branding.displayName;
+      }
     } catch (err) {
       console.warn('[tenant] No se pudo cargar config/RBAC del tenant:', err);
     }
   }, []);
 
+  const applySession = useCallback(
+    async (nextUser: SessionUser, nextEmpresaId: string) => {
+      setSession(nextUser, nextEmpresaId);
+      setUser(nextUser);
+      setEmpresaID(nextEmpresaId);
+      setIsAuthenticated(true);
+      setDefaultHeaders();
+      await hydrateTenantConfig(nextEmpresaId);
+    },
+    [hydrateTenantConfig],
+  );
+
   const recoverSession = useCallback(async () => {
     try {
       await ensureFreshAccessToken();
-      setDefaultHeaders();
-      await hydrateTenantConfig(localStorage.getItem('l_empresa_id'));
+      const profile = await fetchSessionProfile();
+      await applySession(
+        {
+          user_code: String(profile.colaboradorID),
+          nombreUsuario: profile.nombreUsuario,
+        },
+        profile.empresaId,
+      );
       return true;
     } catch {
+      clearSession();
+      setUser(null);
+      setEmpresaID(null);
+      setIsAuthenticated(false);
+      setDefaultHeaders();
       return false;
     }
-  }, [hydrateTenantConfig]);
+  }, [applySession]);
 
   useEffect(() => {
+    purgeLegacyAuthStorage();
     let alive = true;
     (async () => {
-      if (isAuthenticated) {
-        try {
-          await ensureFreshAccessToken();
-          await hydrateTenantConfig(localStorage.getItem('l_empresa_id'));
-        } catch {
-          // La recuperación silenciosa puede fallar en sesiones viejas sin cookie refresh.
-          // No mostramos banner ni limpiamos sesión: solo "Cerrar sesión" desloguea.
-        }
+      const ok = await recoverSession();
+      if (!alive) return;
+      if (!ok) {
+        setIsAuthenticated(false);
       }
-      if (alive) setDefaultHeaders();
+      setSessionReady(true);
     })();
     return () => {
       alive = false;
     };
-  }, [isAuthenticated, hydrateTenantConfig]);
+  }, [recoverSession]);
 
-  const login = useCallback((user: string, empresaId: string) => {
-    setUser(user);
-    setEmpresaID(empresaId);
-    setIsAuthenticated(true);
-    localStorage.setItem('user', JSON.stringify(user));
-    localStorage.setItem('l_empresa_id', empresaId);
-    localStorage.setItem('isAuthenticated', 'true');
-    void hydrateTenantConfig(empresaId);
-  }, [hydrateTenantConfig]);
+  const login = useCallback(
+    (nextUser: SessionUser, nextEmpresaId: string) => {
+      void applySession(nextUser, nextEmpresaId);
+    },
+    [applySession],
+  );
 
   const logout = () => {
+    void logoutUser();
+    clearSession();
+    clearTenantConfigCache();
+    clearTenantRbacCache();
     setUser(null);
     setEmpresaID(null);
     setIsAuthenticated(false);
-    localStorage.removeItem('user');
-    localStorage.removeItem('l_empresa_id');
-    localStorage.removeItem('isAuthenticated');
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('token');
-    clearTenantConfigCache();
-    clearTenantRbacCache();
+    setDefaultHeaders();
   };
-  
+
   const checkPermission = (route: Route): boolean => {
     if (!user || !empresaId) return false;
     return hasPermission(String(user.user_code), route, empresaId);
   };
 
   return (
-    <AuthContext.Provider 
-    value={{ 
-      isAuthenticated, 
-      user,
-      empresaId,
-      login, logout, recoverSession, hasPermission: checkPermission }}>
+    <AuthContext.Provider
+      value={{
+        isAuthenticated,
+        sessionReady,
+        user,
+        empresaId,
+        login,
+        logout,
+        recoverSession,
+        hasPermission: checkPermission,
+      }}
+    >
       {children}
     </AuthContext.Provider>
   );

@@ -9,6 +9,7 @@ import { ensureFreshAccessToken } from '../../api/api_auth';
 import { useAuth } from '../../context/AuthContext';
 import { toggleSidebar } from '../../store/themeConfigSlice';
 import { requestNotificationPermission } from '../../config/firebase';
+import { getSessionEmpresaId, getSessionUserId, getSessionUser } from '../../session/sessionStore';
 //import Presentismo= React.lazy(() =>  from './Presentismo';
 import { calculateDistance } from '../../utils/geolocation'; // Función para calcular la distancia
 import { formatHoraRegistroArgentina } from '../../utils/horaRegistro';
@@ -34,6 +35,9 @@ import HomeMoodStrip from '../../components/Home/HomeMoodStrip';
 import HomeMundialDistriCta from '../../components/Home/HomeMundialDistriCta';
 import { homePageShell, homeWatermark } from '../../components/Home/homeSurface';
 import { useHomeMood } from '../../hooks/useHomeMood';
+import { hasTenantPermission } from '../../services/tenantRbacService';
+import { getTenantFeatures } from '../../services/tenantConfigService';
+import { Route } from '../../config/permissions';
 
 const Presentismo = React.lazy(() => import('./Presentismo'));
 
@@ -41,17 +45,8 @@ const Presentismo = React.lazy(() => import('./Presentismo'));
 // Variables globales para el cooldown y la última ubicación
 let lastRequestTime = 0; // Tiempo de la última solicitud
 const cooldownDuration = 5 * 60 * 1000; // Cooldown de 5 minutos (en milisegundos)
-let lastLocation: { latitude: number; longitude: number } | null = null; // Última ubicación registrada
-const distanceThreshold = 0.1; // Umbral de distancia en kilómetros (100 metros)
-const colaboradoresEspeciales = [1, 8, 110, 135,
-  162, 149]; // IDs especiales de colaboradores
-
-/** Colaboradores que ven el acceso a Mundial Distri en Home (piloto). */
-const colaboradoresMundialDistri = [1, 8, 7];
-
-
-/** Poner en `true` para mostrar de nuevo el botón "Mi Feedback" (Mi Desempeño) en Home. */
-const SHOW_MI_FEEDBACK_HOME_BADGE = true;
+let lastLocation: { latitude: number; longitude: number } | null = null;
+const distanceThreshold = 0.1;
 
 const Home: React.FC = () => {
   const [profile, setProfile] = useState<any>(null);
@@ -75,10 +70,20 @@ const Home: React.FC = () => {
   const [autoIniciarCamaraAbrir, setAutoIniciarCamaraAbrir] = useState(false);
   const [pulsoTileFichaje, setPulsoTileFichaje] = useState<'idle' | 'exito' | 'error'>('idle');
   const [userArea, setUserArea] = useState<string>('');
-  const [isButtonDisabled, setIsButtonDisabled] = useState(false); // Nuevo estado para controla
-    const navigate = useNavigate();
+  const [isButtonDisabled, setIsButtonDisabled] = useState(false);
+  const navigate = useNavigate();
   const dispatch = useDispatch();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, hasPermission } = useAuth();
+  const tenantFeatures = useMemo(
+    () => getTenantFeatures(empresaID ?? 'default'),
+    [empresaID],
+  );
+  const showMundialHome = tenantFeatures.mundialHome === true;
+  const showMiDesempenoTile =
+    tenantFeatures.miDesempenoHomeTile !== false &&
+    hasPermission(Route.MiDesempeno);
+  const showCommercialGeo =
+    tenantFeatures.commercialGeoCheckIn === true && userArea === 'Comercial';
 
   const { lastMood, setLastMood, moodMessage, moodPending, submitMood } = useHomeMood({
     empresaID,
@@ -120,9 +125,9 @@ const Home: React.FC = () => {
       try {
         await ensureFreshAccessToken();
 
-        const user = localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')!) : null;
+        const user = getSessionUser();
         const userCode = user?.user_code;
-        const empresaGuardada = localStorage.getItem('l_empresa_id');
+        const empresaGuardada = getSessionEmpresaId();
 
         if (!userCode || !empresaGuardada) return;
 
@@ -211,7 +216,7 @@ const Home: React.FC = () => {
       const token = await requestNotificationPermission();
       if (token) {
         console.log('Token de notificación:', token);
-        const colaboradorID = ((localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')!) : null) as { user_code: string | null })?.user_code;
+        const colaboradorID = getSessionUserId();
         const empresaID = "default";
 
 
@@ -242,8 +247,8 @@ const Home: React.FC = () => {
 
 
   useEffect(() => {
-    const user = ((localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')!) : null) as { user_code: string | null })?.user_code;
-    const storedEmpresa = localStorage.getItem('l_empresa_id');
+    const user = getSessionUserId();
+    const storedEmpresa = getSessionEmpresaId();
     const storedColaboradorID = user;
     if (storedColaboradorID) {
       setColaboradorID(String(storedColaboradorID));
@@ -668,8 +673,7 @@ const Home: React.FC = () => {
           onSelect={submitMood}
         />
 
-        {colaboradorID &&
-          colaboradoresMundialDistri.includes(Number(colaboradorID)) && (
+        {colaboradorID && showMundialHome && (
             <HomeMundialDistriCta onClick={() => navigateWithSidebarClose('/mundial')} />
           )}
 
@@ -733,7 +737,7 @@ const Home: React.FC = () => {
                 window.open(getQrHomeUrl(), '_blank');
               }}
             />
-            {SHOW_MI_FEEDBACK_HOME_BADGE && (Number(colaboradorID) === 1 || userArea === 'Administración') && (
+            {showMiDesempenoTile && (
               <HomeTile
                 title="Mi Feedback"
                 icon={TrendingUp}
@@ -745,7 +749,7 @@ const Home: React.FC = () => {
               icon={Users}
               onClick={() => navigateWithSidebarClose('/TeamDetails')}
             />
-            {userArea === 'Comercial' && (
+            {showCommercialGeo && (
               <HomeTile
                 title="Marcar Posición"
                 icon={MapPin}

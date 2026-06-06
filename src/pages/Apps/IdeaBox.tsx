@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { apiClient } from '../../api/apiClient';
-import { 
+import { getSessionEmpresaId, getSessionUserId, getSessionUser } from '../../session/sessionStore';
+import {
   Button, 
   Table, 
   TableBody, 
@@ -63,9 +64,9 @@ const IdeaBox: React.FC = () => {
 
 
   useEffect(() => {
-    const user = ((localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')!) : null) as { user_code: string | null })?.user_code;
+    const user = getSessionUserId();
     const colaboradorID = user;
-    const storedEmpresa = localStorage.getItem('l_empresa_id');
+    const storedEmpresa = getSessionEmpresaId();
     if (storedEmpresa) {
     const empresaAreas = getAreasForEmpresa(storedEmpresa);
     if (colaboradorID && storedEmpresa) {
@@ -91,7 +92,7 @@ const IdeaBox: React.FC = () => {
     }
 
 
-    const user = ((localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')!) : null) as { user_code: string | null })?.user_code;
+    const user = getSessionUserId();
     const colaboradorID = user;
 
  

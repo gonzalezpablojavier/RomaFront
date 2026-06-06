@@ -8,18 +8,16 @@ import {
   CreateFaqRequest,
 } from '../types/chatbot.types';
 import { apiClient } from '../api/apiClient';
+import { getSessionEmpresaId, getSessionUserId } from '../session/sessionStore';
 
 class ChatbotService {
   private getUserData() {
-    const userStr = localStorage.getItem('user');
-    const empresaId = localStorage.getItem('l_empresa_id') || 'default';
+    const colaboradorID = getSessionUserId();
+    const empresaId = getSessionEmpresaId() ?? 'default';
 
-    if (!userStr) {
+    if (!colaboradorID) {
       throw new Error('No hay usuario autenticado');
     }
-
-    const user = JSON.parse(userStr);
-    const colaboradorID = user.id || user.colaboradorID || user.user_code;
 
     return { colaboradorID, empresaId };
   }

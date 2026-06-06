@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { apiClient, getApiBaseUrl } from '../../api/apiClient';
 import { getAreasForEmpresa } from '../../services/empresaService';
 import { buildLeadersByArea } from '../../services/tenantRbacService';
+import { getSessionEmpresaId, getSessionUserId, getSessionUser } from '../../session/sessionStore';
 
 // Define las interfaces para la tipificación
 interface Stat {
@@ -277,7 +278,7 @@ const TeamDetails: React.FC = () => {
         setLoading(true);
         
         // Obtener empresa ID desde localStorage
-        const storedEmpresaID = localStorage.getItem('l_empresa_id');
+        const storedEmpresaID = getSessionEmpresaId();
         if (!storedEmpresaID) {
           setError('No se ha especificado una empresa');
           return;

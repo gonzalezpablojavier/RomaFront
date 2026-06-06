@@ -2,19 +2,15 @@ import React, { useState, useEffect } from 'react';
 import { Send, MessagesSquare, X, Trash2 } from 'lucide-react';
 import { useChat } from '../hooks/useChat';
 import { ChatMessage } from './ChatMessage';
+import { getSessionEmpresaId, getSessionUserId, getSessionUser } from '../session/sessionStore';
 
 export const ChatWidget: React.FC = () => {
   // Verificar si el usuario puede ver el chat (solo colaboradorID 1, 8, 9)
   const canUseChat = (): boolean => {
     try {
-      const userStr = localStorage.getItem('user');
-      if (!userStr) return false;
-      
-      const user = JSON.parse(userStr);
-      const colaboradorID = user.id || user.colaboradorID || user.user_code;
-      
-      // Solo permitir colaboradorID 1, 8, 9
-      return [1, 8, 9,7,244,16].includes(Number(colaboradorID));
+      const colaboradorID = getSessionUserId();
+      if (!colaboradorID) return false;
+      return [1, 8, 9, 7, 244, 16].includes(Number(colaboradorID));
     } catch (error) {
       console.error('Error verificando colaboradorID:', error);
       return false;

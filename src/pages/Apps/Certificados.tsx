@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { apiClient } from '../../api/apiClient';
 import { buildCertificadoViewUrl } from '../../config/env';
-import { 
+import { getSessionEmpresaId, getSessionUserId, getSessionUser } from '../../session/sessionStore';
+import {
   Button, 
   Table, 
   TableBody, 
@@ -57,9 +58,9 @@ const CertificadoUpload: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    const user = ((localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')!) : null) as { user_code: string | null })?.user_code;
+    const user = getSessionUserId();
     const colaboradorID = user;
-    const storedEmpresa = localStorage.getItem('l_empresa_id');
+    const storedEmpresa = getSessionEmpresaId();
     if (colaboradorID && storedEmpresa) {
       setEmpresaId(storedEmpresa);
       obtenerHistorialCertificados(colaboradorID,storedEmpresa);
@@ -79,7 +80,7 @@ const CertificadoUpload: React.FC = () => {
       return;
     }
 
-    const user = ((localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')!) : null) as { user_code: string | null })?.user_code;
+    const user = getSessionUserId();
     const colaboradorID = user;
 
     if (!colaboradorID) {

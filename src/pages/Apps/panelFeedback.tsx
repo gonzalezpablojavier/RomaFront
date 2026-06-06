@@ -2,6 +2,7 @@ import React, { useState, useEffect,useCallback  } from 'react';
 import { apiClient } from '../../api/apiClient';
 import { format } from 'date-fns';
 import { getAreasForEmpresa, getManagerIdsForEmpresa, getManagerAreasForEmpresa } from '../../services/empresaService';
+import { getSessionEmpresaId, getSessionUserId, getSessionUser } from '../../session/sessionStore';
 
 interface Feedback {
   id: number;
@@ -68,7 +69,7 @@ const PanelFeedBack: React.FC = () => {
   
   
   useEffect(() => {
-    const storedEmpresaID = localStorage.getItem('l_empresa_id');
+    const storedEmpresaID = getSessionEmpresaId();
     if (storedEmpresaID) {
       setEmpresaId(storedEmpresaID);
       const empresaAreas = getAreasForEmpresa(storedEmpresaID);

@@ -5,6 +5,7 @@ import Swal from 'sweetalert2';
 import { useAuth } from '../../context/AuthContext';
 import { Route } from '../../config/permissions';
 import { CRITERIOS_LIDER, CRITERIOS_POR_NIVEL, DESCRIPCION_LIDER, DESCRIPCION_NIVEL, getTrimestreActivoFromDate } from '../../config/desempenoConfig';
+import { getSessionEmpresaId, getSessionUserId, getSessionUser } from '../../session/sessionStore';
 import {
   getAreasForEmpresa,
   getDepoSucursalLeaderIds,
@@ -19,6 +20,7 @@ import {
 } from '../../services/tenantRbacService';
 import { desempenoService } from '../../services/desempenoService';
 import { getApiBaseUrl } from '../../api/apiClient';
+import { getAccessToken } from '../../api/api_auth';
 import type { CriterioConfig, CriterioPuntaje, Nivel } from '../../types/desempeno';
 
 type TabId = 'resumen' | 'colaboradores' | 'ranking' | 'evolucion';
@@ -92,15 +94,8 @@ function formatSucursalPanel(sucursal: any) {
 function parseSessionColaboradorId(user: any): string {
   const fromCtx = user?.user_code ?? user?.colaboradorID ?? user?.userId ?? user?.id;
   if (fromCtx != null && String(fromCtx).trim() !== '') return String(fromCtx);
-  try {
-    const raw = localStorage.getItem('user');
-    const parsed = raw ? JSON.parse(raw) : null;
-    const v = parsed?.user_code ?? parsed?.colaboradorID ?? parsed?.userId ?? parsed?.id;
-    if (v != null && String(v).trim() !== '') return String(v);
-  } catch {
-    /* ignore */
-  }
-  return '';
+  const fromSession = getSessionUserId();
+  return fromSession ?? '';
 }
 
 function rowScoreTotal(c: any): number | null {
@@ -604,7 +599,7 @@ const PanelDesempeno = () => {
   const [selectedEval, setSelectedEval] = useState<any | null>(null);
   const [forceReadOnly, setForceReadOnly] = useState(false);
 
-  const empresa = empresaId || localStorage.getItem('l_empresa_id') || 'default';
+  const empresa = empresaId || getSessionEmpresaId() || 'default';
   const sessionColaboradorId = useMemo(() => parseSessionColaboradorId(user), [user]);
   const managerIds = useMemo(() => getManagerIdsForEmpresa(empresa), [empresa]);
   const managerAreas = useMemo(() => getManagerAreasForEmpresa(empresa), [empresa]);
@@ -1820,7 +1815,7 @@ const PanelDesempeno = () => {
         initialObjetivos={selectedEval?.objetivos}
         onSave={async ({ nivel, criterios, observaciones, objetivos }) => {
           if (!selectedColab) return;
-          const token = localStorage.getItem('authToken') || localStorage.getItem('token');
+          const token = getAccessToken();
           if (!token) {
             await Swal.fire({
               icon: 'warning',

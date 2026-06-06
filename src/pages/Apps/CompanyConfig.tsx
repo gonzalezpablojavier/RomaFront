@@ -11,6 +11,7 @@ import NotificationModal from './NotificationModal';
 import { sendBulkPushNotifications } from '../../services/pushNotificationService';
 import ScheduledNotificationModal, { ScheduleNotificationData } from './ScheduledNotificationModal';
 import { Clock } from 'lucide-react';
+import { getSessionEmpresaId, getSessionUserId, getSessionUser } from '../../session/sessionStore';
 interface Colaborador {
   id:number;
   nombre: string;
@@ -100,7 +101,7 @@ const handleSendBulkNotifications = async (title: string, body: string, selected
       title,
       body,
       selectedIds,
-      empresaId ?? localStorage.getItem('l_empresa_id') ?? undefined,
+      empresaId ?? getSessionEmpresaId() ?? undefined,
     );
     alert(`Notificaciones enviadas:\n✅ Exitosas: ${successCount}\n❌ Fallidas: ${errorCount}`);
   } catch (error) {

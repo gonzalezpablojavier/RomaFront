@@ -1,31 +1,72 @@
 import axios, { AxiosInstance } from 'axios';
 import { apiClient } from './apiClient';
+import {
+  clearSession,
+  getSessionEmpresaId,
+  purgeLegacyAuthStorage,
+  setSession,
+} from '../session/sessionStore';
 
 interface LoginResponse {
-  colaboradorID: string;
+  colaboradorID: string | number;
   empresaId: string;
   nombreUsuario: string;
-  
   access_token: string;
-  // Añade aquí cualquier otro campo que tu API devuelva
+  type?: string;
+  mfaRequired?: false;
 }
 
-type RefreshResponse = {
-  access_token: string;
+export interface MfaPendingResponse {
+  mfaRequired: true;
+  mfaEnrollmentRequired: boolean;
+  mfaChallengeToken: string;
+  colaboradorID: string | number;
+  nombreUsuario: string;
+  empresaId: string;
+}
+
+export type LoginResult = LoginResponse | MfaPendingResponse;
+
+export function isMfaPending(data: LoginResult): data is MfaPendingResponse {
+  return data?.mfaRequired === true;
+}
+
+export type MfaEnrollBeginResponse = {
+  otpauthUrl: string;
+  secretBase32: string;
+  issuer: string;
+  account: string;
 };
+
+type RefreshResponse = LoginResponse;
 
 const ACCESS_TOKEN_REFRESH_MARGIN_SECONDS = 60;
 
+let memoryAccessToken: string | null = null;
+
+export function getAccessToken(): string | null {
+  return memoryAccessToken;
+}
+
+export function setAccessToken(token: string | null): void {
+  memoryAccessToken = token;
+}
+
 function isAuthRequest(config: any) {
   const url = String(config?.url ?? '');
-  return url.includes('/auth/login') || url.includes('/auth/refresh');
+  return (
+    url.includes('/auth/login') ||
+    url.includes('/auth/refresh') ||
+    url.includes('/auth/logout') ||
+    url.includes('/auth/mfa/')
+  );
 }
 
 function isUnauthorizedError(e: any) {
   return Number(e?.response?.status) === 401;
 }
 
-let refreshPromise: Promise<string> | null = null;
+let refreshPromise: Promise<RefreshResponse> | null = null;
 
 function decodeJwtPayload(token: string): any | null {
   try {
@@ -48,12 +89,10 @@ function shouldRefreshAccessToken(token: string) {
   const payload = decodeJwtPayload(token);
   const exp = Number(payload?.exp);
   if (!Number.isFinite(exp)) return false;
-
   const now = Math.floor(Date.now() / 1000);
   return exp - now <= ACCESS_TOKEN_REFRESH_MARGIN_SECONDS;
 }
 
-/** Token aún aceptable por el backend (con margen de reloj). */
 export function isAccessTokenUsable(token: string): boolean {
   const payload = decodeJwtPayload(token);
   const exp = Number(payload?.exp);
@@ -61,43 +100,95 @@ export function isAccessTokenUsable(token: string): boolean {
   return exp > Math.floor(Date.now() / 1000) + 5;
 }
 
-
-
-
-
-
-export const loginUser = async (username: string, password: string): Promise<LoginResponse> => {
-  try {
-    const response = await apiClient.post<LoginResponse>(
-      '/auth/login',
-      { username, password },
+function applySessionFromAuthResponse(data: RefreshResponse) {
+  if (data.empresaId && data.colaboradorID != null) {
+    setSession(
+      {
+        user_code: String(data.colaboradorID),
+        nombreUsuario: data.nombreUsuario,
+      },
+      data.empresaId,
     );
-
-    console.log('Login response api_auth:', response.data);
-
-    // Guardar el token y el empresaId en el almacenamiento local
-    if (response.data.access_token) {
-      // authToken es el key "oficial" de este frontend para axios
-      localStorage.setItem('authToken', response.data.access_token);
-      // token se usa en otras partes del proyecto (ej: chatbot.service.ts)
-      localStorage.setItem('token', response.data.access_token);
-      localStorage.setItem('l_empresa_id', response.data.empresaId);
-      // Aplicar headers globales inmediatamente (evita 401 por timing/hot reload)
-      setDefaultHeaders();
-      console.log(response.data.empresaId);
-    }
-
-    return response.data;
-  } catch (error) {
-    console.error('Error durante el login:', error);
-    throw error;
   }
+}
+
+export const loginUser = async (
+  username: string,
+  password: string,
+): Promise<LoginResult> => {
+  const response = await apiClient.post<LoginResult>('/auth/login', {
+    username,
+    password,
+  });
+
+  if (isMfaPending(response.data)) {
+    return response.data;
+  }
+
+  if (response.data.access_token) {
+    setAccessToken(response.data.access_token);
+    applySessionFromAuthResponse(response.data);
+    setDefaultHeaders();
+  }
+
+  return response.data;
 };
 
-// Función para configurar los headers por defecto para futuras solicitudes
+function applyMfaSession(data: LoginResponse) {
+  setAccessToken(data.access_token);
+  applySessionFromAuthResponse(data);
+  setDefaultHeaders();
+}
+
+export async function mfaEnrollBegin(
+  mfaChallengeToken: string,
+): Promise<MfaEnrollBeginResponse> {
+  const { data } = await apiClient.post<MfaEnrollBeginResponse>(
+    '/auth/mfa/enroll/begin',
+    { mfaChallengeToken },
+  );
+  return data;
+}
+
+export async function mfaEnrollConfirm(
+  mfaChallengeToken: string,
+  code: string,
+): Promise<LoginResponse> {
+  const { data } = await apiClient.post<LoginResponse>(
+    '/auth/mfa/enroll/confirm',
+    { mfaChallengeToken, code },
+  );
+  applyMfaSession(data);
+  return data;
+}
+
+export async function mfaVerify(
+  mfaChallengeToken: string,
+  code: string,
+): Promise<LoginResponse> {
+  const { data } = await apiClient.post<LoginResponse>('/auth/mfa/verify', {
+    mfaChallengeToken,
+    code,
+  });
+  applyMfaSession(data);
+  return data;
+}
+
+export type SessionProfile = {
+  colaboradorID: number;
+  nombreUsuario: string;
+  empresaId: string;
+  type: 'colaborador';
+};
+
+export async function fetchSessionProfile(): Promise<SessionProfile> {
+  const { data } = await apiClient.get<SessionProfile>('/auth/me');
+  return data;
+}
+
 export const setDefaultHeaders = () => {
-  const token = localStorage.getItem('authToken') || localStorage.getItem('token');
-  const empresaId = localStorage.getItem('l_empresa_id');
+  const token = getAccessToken();
+  const empresaId = getSessionEmpresaId();
 
   const applyHeaders = (client: AxiosInstance) => {
     if (token) {
@@ -116,26 +207,17 @@ export const setDefaultHeaders = () => {
   applyHeaders(apiClient);
 };
 
-async function refreshAccessToken(): Promise<string> {
+async function refreshAccessToken(): Promise<RefreshResponse> {
   if (refreshPromise) return refreshPromise;
 
   refreshPromise = (async () => {
-    const empresaId = localStorage.getItem('l_empresa_id');
-    const resp = await apiClient.post<RefreshResponse>(
-      '/auth/refresh',
-      null,
-      {
-        headers: empresaId ? { 'x-empresa-id': empresaId } : undefined,
-      },
-    );
-
-    const token = resp.data?.access_token;
-    if (!token) throw new Error('Refresh sin access_token');
-
-    localStorage.setItem('authToken', token);
-    localStorage.setItem('token', token);
+    const resp = await apiClient.post<RefreshResponse>('/auth/refresh', null);
+    const data = resp.data;
+    if (!data?.access_token) throw new Error('Refresh sin access_token');
+    setAccessToken(data.access_token);
+    applySessionFromAuthResponse(data);
     setDefaultHeaders();
-    return token;
+    return data;
   })().finally(() => {
     refreshPromise = null;
   });
@@ -144,16 +226,32 @@ async function refreshAccessToken(): Promise<string> {
 }
 
 export async function ensureFreshAccessToken(): Promise<string | null> {
-  const stored = localStorage.getItem('authToken') || localStorage.getItem('token');
+  const stored = getAccessToken();
 
   try {
     if (stored && !shouldRefreshAccessToken(stored)) return stored;
-    return await refreshAccessToken();
+    const data = await refreshAccessToken();
+    return data.access_token;
   } catch {
-    // Refresh 401 (sin cookie rrhh_refresh o sesión vieja): usar access si aún sirve.
     if (stored && isAccessTokenUsable(stored)) return stored;
-    return null;
+    try {
+      const data = await refreshAccessToken();
+      return data.access_token;
+    } catch {
+      return null;
+    }
   }
+}
+
+export async function logoutUser(): Promise<void> {
+  try {
+    await apiClient.post('/auth/logout');
+  } catch {
+    // cookie inválida o sesión ya cerrada
+  }
+  setAccessToken(null);
+  clearSession();
+  setDefaultHeaders();
 }
 
 function attachAuthInterceptors(client: AxiosInstance) {
@@ -162,15 +260,15 @@ function attachAuthInterceptors(client: AxiosInstance) {
   (client as any)[key] = true;
 
   client.interceptors.request.use(async (config) => {
-    let token = localStorage.getItem('authToken') || localStorage.getItem('token');
-    const empresaId = localStorage.getItem('l_empresa_id');
+    let token = getAccessToken();
+    const empresaId = getSessionEmpresaId();
 
     if (token && !isAuthRequest(config) && shouldRefreshAccessToken(token)) {
       try {
-        token = await refreshAccessToken();
+        const data = await refreshAccessToken();
+        token = data.access_token;
       } catch {
-        // No expulsamos al usuario por un fallo puntual de refresh.
-        // La request original seguirá su curso y el backend decidirá.
+        // sigue con token actual
       }
     }
 
@@ -190,25 +288,22 @@ function attachAuthInterceptors(client: AxiosInstance) {
       const config = error?.config;
       if (!isUnauthorizedError(error) || !config) throw error;
       if (isAuthRequest(config)) throw error;
-
       if ((config as any).__retried) throw error;
       (config as any).__retried = true;
 
-      let token: string;
       try {
-        token = await refreshAccessToken();
+        const data = await refreshAccessToken();
+        config.headers = config.headers ?? {};
+        (config.headers as any).Authorization = `Bearer ${data.access_token}`;
+        return client(config);
       } catch {
         throw error;
       }
-
-      config.headers = config.headers ?? {};
-      (config.headers as any).Authorization = `Bearer ${token}`;
-      return client(config);
     },
   );
 }
 
-// Inicialización global (evita 401 por timing tras refresh).
+purgeLegacyAuthStorage();
 axios.defaults.withCredentials = true;
 attachAuthInterceptors(axios as AxiosInstance);
 attachAuthInterceptors(apiClient);

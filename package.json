@@ -6,6 +6,7 @@
     "scripts": {
         "predev": "node scripts/generate-firebase-messaging-sw.mjs",
         "dev": "vite",
+        "dev:staging": "vite --mode staging.local",
         "prebuild": "node scripts/generate-firebase-messaging-sw.mjs",
         "build": "tsc && vite build",
         "preview": "vite preview",

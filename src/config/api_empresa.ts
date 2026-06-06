@@ -1,4 +1,11 @@
 import { apiClient, isAxiosError } from '../api/apiClient';
+import {
+  clearEmpresaSession,
+  getEmpresaAccessToken,
+  getEmpresaPanelId,
+  purgeLegacyEmpresaAuthStorage,
+  setEmpresaSession,
+} from '../session/empresaSessionStore';
 interface Empresa {
   id: number;
   nombre: string;
@@ -72,8 +79,7 @@ export const loginEmpresa = async (credentials: LoginCredentials): Promise<Login
     const response = await apiClient.post<LoginResponse>('/auth/login-empresa', credentials);
     const data = response.data;
     if (data.token) {
-      localStorage.setItem('empresaToken', data.token);
-      localStorage.setItem('l_empresa_id', String(data.id));
+      setEmpresaSession(data.token, data.id);
       apiClient.defaults.headers.common['Authorization'] = `Bearer ${data.token}`;
       apiClient.defaults.headers.common['x-empresa-id'] = String(data.id);
     }
@@ -93,9 +99,13 @@ export const loginEmpresa = async (credentials: LoginCredentials): Promise<Login
   }
 };
 
+purgeLegacyEmpresaAuthStorage();
 
-
-
+export const logoutEmpresa = (): void => {
+  clearEmpresaSession();
+  delete apiClient.defaults.headers.common['Authorization'];
+  delete apiClient.defaults.headers.common['x-empresa-id'];
+};
 
 // Función para obtener información de la empresa
 export const getEmpresaInfo = async (empresaId: number): Promise<EmpresaInfo> => {

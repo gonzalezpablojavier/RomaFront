@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { apiClient } from '../../api/apiClient';
 import { format } from 'date-fns';
+import { getSessionEmpresaId, getSessionUserId, getSessionUser } from '../../session/sessionStore';
 import {
   getAreasForEmpresa,
   getManagerAreasForEmpresa,
@@ -69,12 +70,10 @@ const ManageMoods: React.FC = () => {
 
   useEffect(() => {
     const userID = (
-      localStorage.getItem('user')
-        ? JSON.parse(localStorage.getItem('user')!)
-        : null
+      getSessionUser()
     ) as { user_code: string | null } | null;
     const userCode = userID?.user_code;
-    const storedEmpresaID = localStorage.getItem('l_empresa_id') || 'default';
+    const storedEmpresaID = getSessionEmpresaId() ?? 'default';
     if (userCode) {
       setCurrentUserID(String(userCode));
       const userIDString = String(userCode);

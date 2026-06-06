@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { apiClient } from '../../api/apiClient';
+import { getSessionEmpresaId, getSessionUserId, getSessionUser } from '../../session/sessionStore';
 import {
     getManagerIdsForEmpresa,
     getManagerAreasForEmpresa,
@@ -225,7 +226,7 @@ const ColaboradoresList: React.FC = () => {
 
     // Efecto para cargar info basándonos en localStorage
     useEffect(() => {
-        const storedEmpresaID = localStorage.getItem('l_empresa_id');
+        const storedEmpresaID = getSessionEmpresaId();
         if (!storedEmpresaID) {
             setError('No se ha especificado una empresa');
             return;

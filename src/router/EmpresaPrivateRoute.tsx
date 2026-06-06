@@ -1,6 +1,10 @@
 import React, { ReactNode } from 'react';
 import { Navigate, useLocation, useParams } from 'react-router-dom';
 import { isAccessTokenUsable } from '../api/api_auth';
+import {
+  getEmpresaAccessToken,
+  getEmpresaPanelId,
+} from '../session/empresaSessionStore';
 
 interface EmpresaPrivateRouteProps {
   children: ReactNode;
@@ -9,8 +13,8 @@ interface EmpresaPrivateRouteProps {
 const EmpresaPrivateRoute: React.FC<EmpresaPrivateRouteProps> = ({ children }) => {
   const location = useLocation();
   const { empresaId } = useParams<{ empresaId: string }>();
-  const token = localStorage.getItem('empresaToken');
-  const storedEmpresaId = localStorage.getItem('l_empresa_id');
+  const token = getEmpresaAccessToken();
+  const storedEmpresaId = getEmpresaPanelId();
 
   const tokenOk = token ? isAccessTokenUsable(token) : false;
   const tenantOk =

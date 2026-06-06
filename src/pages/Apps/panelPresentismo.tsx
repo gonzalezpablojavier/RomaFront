@@ -4,6 +4,7 @@ import dayjs from 'dayjs';
 import isSameOrBefore from 'dayjs/plugin/isSameOrBefore';
 import isSameOrAfter from 'dayjs/plugin/isSameOrAfter';
 import isBetween from 'dayjs/plugin/isBetween';
+import { getSessionEmpresaId, getSessionUserId, getSessionUser } from '../../session/sessionStore';
 import {
   Table,
   TableBody,
@@ -225,7 +226,7 @@ const AdminPresentismoPanel: React.FC = () => {
 
   // Recuperar empresa desde localStorage
   useEffect(() => {
-    const storedEmpresaID = localStorage.getItem('l_empresa_id');
+    const storedEmpresaID = getSessionEmpresaId();
     if (storedEmpresaID) {
       setEmpresaId(storedEmpresaID);
       const empresaAreas = getAreasForEmpresa(storedEmpresaID);

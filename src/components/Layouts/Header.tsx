@@ -8,6 +8,13 @@ import lw from '/assets/images/logo-head.png';
 import lb from '/assets/images/logo-foot.png';
 import { apiClient } from '../../api/apiClient';
 import { getDefaultUserPhotoUrl } from '../../config/env';
+import {
+  getSessionEmpresaId,
+  getSessionUserId,
+  getSessionUser,
+  purgeLegacyAuthStorage,
+} from '../../session/sessionStore';
+import { useAuth } from '../../context/AuthContext';
 
 
 interface InboxNotification {
@@ -48,6 +55,7 @@ const Header = () => {
   const location = useLocation();
   const navigate = useNavigate();
   const dispatch = useDispatch();
+  const { logout } = useAuth();
   const themeConfig = useSelector((state: IRootState) => state.themeConfig);
 
 
@@ -57,24 +65,13 @@ const Header = () => {
 
 
   useEffect(() => {
-    const storedUser = localStorage.getItem('user');
-    const storedEmpresa = localStorage.getItem('l_empresa_id');
-    if (storedUser) {
-      try {
-        const parsedUser = JSON.parse(storedUser);
-        setColaboradorID(parsedUser.user_code);
-      } catch (error) {
-        console.error('Error parsing user data:', error);
-      }
+    const userId = getSessionUserId();
+    const storedEmpresa = getSessionEmpresaId();
+    if (userId) {
+      setColaboradorID(userId);
     }
     if (storedEmpresa) {
-      try {
-        console.log(storedEmpresa);
-        setEmpresaID(storedEmpresa);
-      } catch (error) {
-        console.error('Error parsing empresa data:', error);
-        // Manejar el error
-      }
+      setEmpresaID(storedEmpresa);
     }
   }, []);
 
@@ -176,10 +173,10 @@ const Header = () => {
 
 
   const handleLogout = () => {
-    localStorage.clear();
-    sessionStorage.clear();
-    window.location.reload();
-  }
+    purgeLegacyAuthStorage();
+    logout();
+    navigate('/auth/login');
+  };
   useEffect(() => {
     fetchData();
   }, [fetchData]);

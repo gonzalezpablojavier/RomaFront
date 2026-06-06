@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { apiClient } from '../../api/apiClient';
 import { format, parse, startOfMonth, endOfMonth, startOfYear, endOfYear, isValid } from 'date-fns';
 import { es } from 'date-fns/locale';
+import { getSessionEmpresaId, getSessionUserId, getSessionUser } from '../../session/sessionStore';
 
 interface Feedback {
   id: number;
@@ -46,7 +47,7 @@ const Reconocemos: React.FC = () => {
   
 
   useEffect(() => {
-    const storedEmpresa = localStorage.getItem('l_empresa_id');
+    const storedEmpresa = getSessionEmpresaId();
     if (storedEmpresa) {
       setEmpresaId(storedEmpresa);
       fetchFeedbacks(storedEmpresa);

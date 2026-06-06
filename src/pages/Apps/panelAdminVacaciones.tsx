@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { apiClient } from '../../api/apiClient';
 import { format, isValid, parseISO, differenceInDays, getWeekOfMonth, startOfMonth, endOfMonth } from 'date-fns';
 import { getAreasForEmpresa, getManagerIdsForEmpresa, getManagerAreasForEmpresa } from '../../services/empresaService';
+import { getSessionEmpresaId, getSessionUserId, getSessionUser } from '../../session/sessionStore';
 
 interface Vacaciones {
   id: number;
@@ -128,7 +129,7 @@ const PanelAdminVacaciones: React.FC = () => {
   
  
   useEffect(() => {
-    const storedEmpresaID = localStorage.getItem('l_empresa_id');
+    const storedEmpresaID = getSessionEmpresaId();
     if (storedEmpresaID) {
       setEmpresaId(storedEmpresaID);
       const empresaAreas = getAreasForEmpresa(storedEmpresaID);
@@ -152,7 +153,7 @@ const PanelAdminVacaciones: React.FC = () => {
 
   useEffect(() => {
     const userID = (
-      (localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')!) : null) as { user_code: string | null }
+      (getSessionUser()) as { user_code: string | null }
     )?.user_code;
     if (!userID) return;
 

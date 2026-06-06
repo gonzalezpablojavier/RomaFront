@@ -1,16 +1,28 @@
-import React, { ReactNode } from 'react';
+import React from 'react';
 import { Navigate, useLocation } from 'react-router-dom';
-import { useAuth } from '../../src/context/AuthContext';
+import { useAuth } from '../context/AuthContext';
 
 interface PrivateRouteProps {
-  children: ReactNode;
+  children: React.ReactNode;
 }
 
 const PrivateRoute: React.FC<PrivateRouteProps> = ({ children }) => {
   const location = useLocation();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, sessionReady } = useAuth();
 
-  return isAuthenticated ? <>{children}</> : <Navigate to="/auth/login" state={{ from: location }} />;
+  if (!sessionReady) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-white text-slate-500">
+        Cargando sesión…
+      </div>
+    );
+  }
+
+  return isAuthenticated ? (
+    <>{children}</>
+  ) : (
+    <Navigate to="/auth/login" state={{ from: location }} replace />
+  );
 };
 
 export default PrivateRoute;

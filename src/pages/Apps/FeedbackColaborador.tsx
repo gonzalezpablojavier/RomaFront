@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { apiClient, isAxiosError } from '../../api/apiClient';
+import { getSessionEmpresaId, getSessionUserId, getSessionUser } from '../../session/sessionStore';
 
 const normas = [
   { id: 1, descripcion: 'Nos orientamos al cliente' },
@@ -58,7 +59,7 @@ const FeedbackColaborador: React.FC = () => {
   useEffect(() => {
 
 
-    const storedEmpresa = localStorage.getItem('l_empresa_id');
+    const storedEmpresa = getSessionEmpresaId();
     if (storedEmpresa) {
       setEmpresaId(storedEmpresa);
       fetchColaboradores(storedEmpresa);
@@ -66,7 +67,7 @@ const FeedbackColaborador: React.FC = () => {
 
 
 
-    const user = ((localStorage.getItem('user') ? JSON.parse(localStorage.getItem('user')!) : null) as { user_code: string | null })?.user_code;
+    const user = getSessionUserId();
   
     const loggedInColaboradorID = user
     if (loggedInColaboradorID) {

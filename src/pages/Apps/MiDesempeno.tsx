@@ -4,6 +4,7 @@ import { desempenoService } from '../../services/desempenoService';
 import { CRITERIOS_LIDER, getTrimestreActivoFromDate } from '../../config/desempenoConfig';
 import { useAuth } from '../../context/AuthContext';
 import { getManagerIdsForEmpresa } from '../../services/empresaService';
+import { getSessionEmpresaId, getSessionUserId, getSessionUser } from '../../session/sessionStore';
 
 type EstadoScore = 'En camino' | 'Atención';
 
@@ -112,7 +113,7 @@ const MiDesempeno = () => {
     }));
   }, [data]);
 
-  const empresa = empresaId || localStorage.getItem('l_empresa_id') || 'default';
+  const empresa = empresaId || getSessionEmpresaId() || 'default';
   const managerIds = useMemo(() => getManagerIdsForEmpresa(empresa), [empresa]);
   const isLeader = useMemo(() => {
     const id = data?.colaboradorID ?? user?.user_code;
