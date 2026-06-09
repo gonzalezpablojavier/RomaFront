@@ -91,12 +91,17 @@ const HomeTile: React.FC<HomeTileProps> = ({
       )}
     >
       {badges && badges.length > 0 && (
-        <div className="absolute right-2 top-2 flex flex-col items-end gap-1">
+        <div
+          className={joinClasses(
+            'absolute flex gap-1',
+            isCompact ? 'bottom-2 right-2' : 'right-2 top-2 flex-col items-end gap-1',
+          )}
+        >
           {badges.map((badge, index) => (
             <span
               key={index}
               className={joinClasses(
-                'min-w-[1.25rem] rounded-full px-1.5 py-0.5 text-center text-[10px] font-semibold leading-none',
+                'min-w-[1.25rem] rounded-full px-1.5 py-0.5 text-center text-[10px] font-semibold leading-none shadow-sm',
                 badgeStyles[badge.variant ?? 'primary'],
               )}
             >
@@ -118,9 +123,11 @@ const HomeTile: React.FC<HomeTileProps> = ({
           >
             {iconNode ?? (Icon ? <Icon className="h-5 w-5" strokeWidth={2} aria-hidden /> : null)}
           </span>
-          <span className="min-w-0 flex-1 pr-1">
+          <span className={joinClasses('min-w-0 flex-1', badges?.length ? 'pr-1 pb-5' : 'pr-1')}>
             <span className="block text-sm font-semibold leading-snug text-slate-900">{title}</span>
-            {subtitle && <span className="mt-0.5 block text-xs text-slate-500">{subtitle}</span>}
+            {subtitle && (
+              <span className="mt-0.5 block text-sm font-semibold leading-snug text-slate-900">{subtitle}</span>
+            )}
           </span>
         </>
       ) : (

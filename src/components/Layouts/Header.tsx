@@ -364,7 +364,7 @@ const Header = () => {
               type="button"
               className="collapse-icon flex-none hover:text-primary flex lg:hidden ltr:ml-2 rtl:mr-2 p-2 rounded-full bg-gray-100 hover:bg-gray-200"
               onClick={() => {
-                dispatch(toggleSidebar(false));
+                dispatch(toggleSidebar());
               }}
             >
               <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">

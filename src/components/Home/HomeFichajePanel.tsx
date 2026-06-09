@@ -61,47 +61,41 @@ const HomeFichajePanel: React.FC<HomeFichajePanelProps> = ({
               onFichajeActivate();
             }}
             className={joinClasses(
-              'group col-span-full flex w-full flex-col border-[#009ee3]/25 p-3 text-left ring-1 ring-[#009ee3]/15 md:col-span-4 md:p-4',
+              'group col-span-full flex w-full items-start gap-3 p-3 text-left md:col-span-4 md:p-4',
               homeCard,
               homeCardInteractive,
               homeCardFocus,
               pulso === 'exito' && '!border-emerald-300/80 !bg-emerald-50/95 !ring-emerald-400/40 ring-2',
               pulso === 'error' && '!border-red-300/80 !bg-red-50/95 !ring-red-400/40 ring-2',
-              pulso === 'idle' && 'hover:ring-[#009ee3]/25',
             )}
           >
-            <span className="flex w-full items-center gap-3">
-              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-[#009ee3] to-[#0077b3] text-white shadow-sm shadow-[#009ee3]/20 transition-transform duration-300 ease-out group-hover:translate-x-0.5">
-                <QrCode className="h-6 w-6" strokeWidth={2} aria-hidden />
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-base font-semibold leading-snug text-slate-900">¿Estás en la ofi?</span>
-                <span className="mt-0.5 block text-xs leading-snug text-slate-500">
-                  Escaneá el QR para marcar entrada o salida.
-                </span>
-                {ultimoFichajeHora ? (
-                  <span className="mt-1 block text-xs font-medium text-[#0077b3]">
-                    Último registro hoy: {ultimoFichajeHora} hs
-                  </span>
-                ) : null}
-              </span>
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-[#009ee3]/10 text-[#009ee3]">
+              <QrCode className="h-6 w-6" strokeWidth={2} aria-hidden />
             </span>
-
-            <span className="mt-3 flex w-full flex-col items-center justify-center">
+            <span className="min-w-0 flex-1">
+              <span className="block text-base font-semibold leading-snug text-slate-900">¿Estás en la ofi?</span>
+              <span className="mt-0.5 block text-xs leading-snug text-slate-500">
+                Escaneá el QR para marcar entrada o salida.
+              </span>
+              {ultimoFichajeHora ? (
+                <span className="mt-1 block text-xs font-medium text-[#0077b3]">
+                  Último registro: {ultimoFichajeHora} hs
+                </span>
+              ) : null}
+              {/* loading / presentismo en esta columna */}
               {cargando ? (
-                <span className="flex flex-col items-center gap-2 py-3">
+                <span className="mt-3 flex flex-col items-center gap-2 py-3">
                   <img src="/images/icons8-camara-30.png" alt="" className="h-16 w-16 opacity-80" />
                   <span className="text-xs font-medium text-slate-500">Preparando cámara…</span>
                 </span>
               ) : null}
-              {mostrarPresentismo ? <span className="w-full">{presentismo}</span> : null}
+              {mostrarPresentismo ? <span className="mt-3 block w-full">{presentismo}</span> : null}
+              {!mostrarPresentismo && !cargando ? (
+                <span className={`${homeCtaButton} mt-3 inline-flex items-center justify-center`}>
+                  Toca para Escanear
+                </span>
+              ) : null}
             </span>
-
-            {!mostrarPresentismo && !cargando ? (
-              <span className="mt-3 flex justify-center">
-                <span className={`${homeCtaButton} px-6 py-2 text-sm`}>Tocá para escanear QR</span>
-              </span>
-            ) : null}
           </button>
         )}
       </Suspense>

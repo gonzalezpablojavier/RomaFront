@@ -2,7 +2,7 @@ import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import { useDispatch, useSelector } from 'react-redux';
-import { toggleSidebar } from '../../store/themeConfigSlice';
+import { toggleSidebar, closeSidebar } from '../../store/themeConfigSlice';
 import { IRootState } from '../../store';
 import { Route } from '../../config/permissions';
 import { useState, useEffect } from 'react';
@@ -50,15 +50,20 @@ const Sidebar: React.FC<SidebarProps> = ({ navItems }) => {
     }, []);
 
     const isActive = (path: string) => location.pathname === path;
+
     useEffect(() => {
-        if (window.innerWidth < 1024) {
-           dispatch(toggleSidebar(false));
+        if (window.innerWidth < 1024 && themeConfig.sidebar) {
+            dispatch(closeSidebar());
         }
-        // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [location]);
+    }, [location.pathname, themeConfig.sidebar, dispatch]);
+
+    const sidebarPositionClass = themeConfig.sidebar
+        ? 'ltr:left-0 rtl:right-0 lg:ltr:-left-[260px] lg:rtl:-right-[260px]'
+        : 'ltr:-left-[260px] rtl:-right-[260px] lg:ltr:left-0 lg:rtl:right-0';
+
     return (
         <div className={semidark ? 'dark' : ''}>
-            <nav className={`sidebar overflow-y-auto  fixed min-h-screen h-full top-0 bottom-0 w-[260px] shadow-[5px_0_25px_0_rgba(94,92,154,0.1)] z-50 transition-all duration-300 ${semidark ? 'text-white-dark' : ''}`}>
+            <nav className={`sidebar overflow-y-auto fixed min-h-screen h-full top-0 bottom-0 w-[260px] shadow-[5px_0_25px_0_rgba(94,92,154,0.1)] z-50 transition-all duration-300 ${semidark ? 'text-white-dark' : ''} ${sidebarPositionClass}`}>
                 <div className="bg-white h-full">
                     <div className="flex px-4 py-3">
                         <NavLink to="/" className="main-logo flex items-center shrink-0">    
@@ -69,8 +74,8 @@ const Sidebar: React.FC<SidebarProps> = ({ navItems }) => {
                         </NavLink>
                         <button
                             type="button"
-                            className="collapse-icon w-8 h-8 rounded-full flex items-center hover:bg-gray-500/10 transition duration-300 rtl:rotate-180"
-                            onClick={() => dispatch(toggleSidebar(false))}
+                            className={`collapse-icon w-8 h-8 rounded-full items-center hover:bg-gray-500/10 transition duration-300 rtl:rotate-180 ${themeConfig.sidebar ? 'flex' : 'hidden'}`}
+                            onClick={() => dispatch(toggleSidebar())}
                         >
                             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 m-auto">
                                 <path d="M13 19L7 12L13 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />

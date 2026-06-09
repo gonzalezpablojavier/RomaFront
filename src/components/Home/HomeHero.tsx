@@ -1,7 +1,7 @@
 import React from 'react';
 import { format } from 'date-fns';
 import { es } from 'date-fns/locale';
-import { homeAreaChip, homeCard } from './homeSurface';
+import { homeAreaLabel, homeCard } from './homeSurface';
 
 interface HomeHeroProps {
   greeting: string;
@@ -37,7 +37,10 @@ const HomeHero: React.FC<HomeHeroProps> = ({
         </p>
       </div>
       {userArea ? (
-        <span className={`${homeAreaChip} shrink-0 text-[11px]`}>{userArea}</span>
+        <div className={homeAreaLabel} aria-label={`Área: ${userArea}`}>
+          <span className="text-[10px] font-medium uppercase tracking-wider text-slate-400">Área</span>
+          <span className="text-sm font-semibold text-[#0077b3]">{userArea}</span>
+        </div>
       ) : null}
     </div>
   </header>

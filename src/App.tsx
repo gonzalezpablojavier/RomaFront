@@ -1,7 +1,7 @@
 import { PropsWithChildren, useEffect,useState  } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { IRootState } from './store';
-import { toggleTheme, toggleMenu, toggleLayout, toggleAnimation, toggleNavbar, toggleSemidark } from './store/themeConfigSlice';
+import { toggleTheme, toggleMenu, toggleLayout, toggleAnimation, toggleNavbar, toggleSemidark, closeSidebar } from './store/themeConfigSlice';
 import store from './store';
 
 import { ToastContainer, toast } from 'react-toastify';
@@ -76,6 +76,10 @@ function App({ children }: PropsWithChildren) {
 
     useEffect(() => {
         dispatch(toggleTheme());
+        localStorage.removeItem('sidebar');
+        if (window.innerWidth < 1024) {
+            dispatch(closeSidebar());
+        }
     }, [dispatch]);
 
     useEffect(() => {
@@ -89,9 +93,7 @@ function App({ children }: PropsWithChildren) {
 
 
 
-    const sidebarClass = isMobile
-    ? `${(store.getState().themeConfig.sidebar && 'toggle-sidebar') || ''}`
-    : `${!themeConfig.sidebar ? 'toggle-sidebar' : ''}`;
+    const sidebarClass = `${(themeConfig.sidebar && 'toggle-sidebar') || ''}`;
 
 return (
     <div

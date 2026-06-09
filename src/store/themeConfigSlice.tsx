@@ -27,7 +27,7 @@ const initialState = {
     layout: localStorage.getItem('layout') || themeConfig.layout,
     animation: localStorage.getItem('animation') || themeConfig.animation,
     navbar: localStorage.getItem('navbar') || themeConfig.navbar,
-    sidebar: localStorage.getItem('sidebar') || defaultState.sidebar,
+    sidebar: defaultState.sidebar, // false
     locale: localStorage.getItem('i18nextLng') || themeConfig.locale,
     isDarkMode: false,
     semidark: localStorage.getItem('semidark') || themeConfig.semidark,
@@ -47,6 +47,7 @@ const themeConfigSlice = createSlice({
             payload = payload || state.menu; // vertical, collapsible-vertical, horizontal
             localStorage.setItem('menu', payload);
             state.menu = payload;
+            state.sidebar = false;
         },
         toggleLayout(state, { payload }) {
             payload = payload || state.layout; // full, boxed-layout
@@ -64,13 +65,11 @@ const themeConfigSlice = createSlice({
             localStorage.setItem('navbar', payload);
             state.navbar = payload;
         },
-        toggleSidebar(state, { payload }) {
-            if (payload !== undefined) {
-                state.sidebar = payload;
-            } else {
-                state.sidebar = !state.sidebar;
-            }
-            localStorage.setItem('sidebar', state.sidebar.toString());
+        toggleSidebar(state) {
+            state.sidebar = !state.sidebar;
+        },
+        closeSidebar(state) {
+            state.sidebar = false;
         },
         toggleSemidark(state, { payload }) {
             payload = payload === true || payload === 'true' ? true : false;
@@ -83,6 +82,6 @@ const themeConfigSlice = createSlice({
     },
 });
 
-export const { toggleTheme, toggleMenu, toggleLayout, toggleAnimation, toggleNavbar, toggleSemidark,toggleSidebar, setPageTitle } = themeConfigSlice.actions;
+export const { toggleTheme, toggleMenu, toggleLayout, toggleAnimation, toggleNavbar, toggleSemidark, toggleSidebar, closeSidebar, setPageTitle } = themeConfigSlice.actions;
 
 export default themeConfigSlice.reducer;

@@ -3,11 +3,9 @@ import BirthdayCheckModal from '../../components/BirthdayCheckModal';
 import type { PresentismoRef } from './Presentismo';
 import { isAfter, startOfDay, parseISO, differenceInMonths, differenceInDays } from 'date-fns';
 import { useNavigate } from 'react-router-dom';
-import { useDispatch } from 'react-redux';
 import { apiClient } from '../../api/apiClient';
 import { ensureFreshAccessToken } from '../../api/api_auth';
 import { useAuth } from '../../context/AuthContext';
-import { toggleSidebar } from '../../store/themeConfigSlice';
 import { requestNotificationPermission } from '../../config/firebase';
 import { getSessionEmpresaId, getSessionUserId, getSessionUser } from '../../session/sessionStore';
 //import Presentismo= React.lazy(() =>  from './Presentismo';
@@ -72,7 +70,6 @@ const Home: React.FC = () => {
   const [userArea, setUserArea] = useState<string>('');
   const [isButtonDisabled, setIsButtonDisabled] = useState(false);
   const navigate = useNavigate();
-  const dispatch = useDispatch();
   const { isAuthenticated, hasPermission } = useAuth();
   const tenantFeatures = useMemo(
     () => getTenantFeatures(empresaID ?? 'default'),
@@ -592,13 +589,6 @@ const Home: React.FC = () => {
     navigate(path);
   }, [navigate]);
 
-  const navigateWithSidebarClose = useCallback(
-    (path: string) => {
-      dispatch(toggleSidebar(false));
-      handleNavigation(path);
-    },
-    [dispatch, handleNavigation]
-  );
 
   const handleEnableNotifications = async () => {
     // Llama a la función para solicitar el permiso de notificación
@@ -674,47 +664,48 @@ const Home: React.FC = () => {
         />
 
         {colaboradorID && showMundialHome && (
-            <HomeMundialDistriCta onClick={() => navigateWithSidebarClose('/mundial')} />
+            <HomeMundialDistriCta onClick={() => handleNavigation('/mundial')} />
           )}
 
         <section className="mb-6">
           <HomeSectionLabel>Solicitudes y gestión</HomeSectionLabel>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-4 md:gap-4">
             <HomeTile
-              title="Reconocer / Reforzar"
+              title="Reconocer o"
+              subtitle="Reforzar"
               icon={Heart}
               badges={[
                 { content: felicitacionesDisponibles ?? 0, variant: 'primary' },
                 { content: felicitacionesRecibidas ?? 0, variant: 'success' },
               ]}
-              onClick={() => navigateWithSidebarClose('/FeedbackColaborador')}
+              onClick={() => handleNavigation('/FeedbackColaborador')}
             />
             <HomeTile
               title="Permiso Temporal"
               icon={Plane}
               status={getSolicitudStatus(solicitud?.autorizado)}
-              onClick={() => navigateWithSidebarClose('/PermisoTemporal')}
+              onClick={() => handleNavigation('/PermisoTemporal')}
             />
             <HomeTile
               title="Vacaciones"
               icon={Palmtree}
               status={getSolicitudStatus(solicitudVacaciones?.autorizado)}
-              onClick={() => navigateWithSidebarClose('/vacaciones')}
+              onClick={() => handleNavigation('/vacaciones')}
             />
             <HomeTile
               title="Ranking"
               icon={Star}
-              onClick={() => navigateWithSidebarClose('/reconocemos')}
+              onClick={() => handleNavigation('/reconocemos')}
             />
             <HomeTile
               title="Mis Certificados"
               icon={Award}
-              onClick={() => navigateWithSidebarClose('/Certificados')}
+              onClick={() => handleNavigation('/Certificados')}
             />
             <HomeTile
               title="Caja de Ideas"
               icon={Lightbulb}
-              onClick={() => navigateWithSidebarClose('/IdeaBox')}
+              onClick={() => handleNavigation('/IdeaBox')}
             />
           </div>
         </section>
@@ -741,13 +732,13 @@ const Home: React.FC = () => {
               <HomeTile
                 title="Mi Feedback"
                 icon={TrendingUp}
-                onClick={() => navigateWithSidebarClose('/MiDesempeno')}
+                onClick={() => handleNavigation('/MiDesempeno')}
               />
             )}
             <HomeTile
               title="Nosotros"
               icon={Users}
-              onClick={() => navigateWithSidebarClose('/TeamDetails')}
+              onClick={() => handleNavigation('/TeamDetails')}
             />
             {showCommercialGeo && (
               <HomeTile

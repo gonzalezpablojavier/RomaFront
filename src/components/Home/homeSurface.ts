@@ -24,5 +24,8 @@ export const homeGlassCardHover = homeCardInteractive;
 export const homeAreaChip =
   'inline-block rounded-full border border-[#009ee3]/20 bg-[#009ee3]/10 px-3 py-1 text-xs font-semibold text-[#0077b3]';
 
+export const homeAreaLabel =
+  'flex shrink-0 flex-col items-end gap-0.5 border-l-2 border-[#009ee3]/35 pl-2.5';
+
 export const homeCtaButton =
   'rounded-full bg-gradient-to-r from-[#009ee3] to-[#0077b3] px-5 py-2.5 text-sm font-semibold text-white shadow-md shadow-[#009ee3]/25 transition-transform duration-200 ease-out hover:brightness-105 active:scale-[0.98] motion-reduce:transform-none';

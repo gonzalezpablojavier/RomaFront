@@ -75,7 +75,7 @@ const DefaultLayout = ({ children }: PropsWithChildren) => {
         <App>
             <div className="relative">
              
-                <div className={`${(!themeConfig.sidebar && 'hidden') || ''} fixed inset-0 bg-[black]/60 z-50 lg:hidden`} onClick={() => dispatch(toggleSidebar(false))}></div>
+                <div className={`${(!themeConfig.sidebar && 'hidden') || ''} fixed inset-0 bg-[black]/60 z-50 lg:hidden`} onClick={() => dispatch(toggleSidebar())}></div>
           
                 <div className={`${themeConfig.navbar} main-container text-black bg-white min-h-screen`}>
                     {/* BEGIN SIDEBAR */}
@@ -87,7 +87,7 @@ const DefaultLayout = ({ children }: PropsWithChildren) => {
                     )}
 
                     {/* Main Content */}
-                    <div className={`flex-1 min-h-screen transition-all duration-300 ease-in-out ${themeConfig.sidebar && isAuthenticated ? 'lg:ml-[260px]' : ''}`}>
+                    <div className={`flex-1 min-h-screen transition-all duration-300 ease-in-out ${!themeConfig.sidebar && isAuthenticated ? 'lg:ml-[260px]' : ''}`}>
                       
 
                         <div className="main-content">
